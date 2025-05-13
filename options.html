@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt_BR">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Opções - Womp Assistente</title>
+		<link rel="stylesheet" href="style_options.css" />
+	</head>
+	<body>
+		<div class="container">
+			<h1>Opções SillyMaquina</h1>
+			<div id="messageArea"></div>
+
+			<div class="section" id="accountInfoSection" style="display: none">
+				<h2>Informações da Conta</h2>
+				<p><strong>ID do Usuário:</strong> <span id="infoUserId"></span></p>
+				<p><strong>Nome:</strong> <span id="infoName"></span></p>
+				<p><strong>Plano (Tier):</strong> <span id="infoTierType"></span></p>
+				<p><strong>Início do Plano:</strong> <span id="infoTierStart"></span></p>
+				<p><strong>Fim do Plano:</strong> <span id="infoTierEnd"></span></p>
+				<h3>Histórico de Pagamentos:</h3>
+				<ul id="paymentHistoryList">
+					<li>Nenhum histórico.</li>
+				</ul>
+				<button id="logoutButton" class="danger">Sair (Logout)</button>
+			</div>
+			<p id="notLoggedInMessage">Você não está logado. Por favor, faça login através do ícone da extensão.</p>
+
+			<div class="section" id="settingsSection" style="display: none">
+				<h2>Configurações da Extensão</h2>
+				<form id="settingsForm">
+					<div class="form-group">
+						<label for="captureMode">Modo de Captura:</label>
+						<select id="captureMode">
+							<option value="fixed">Posição Fixa (Pré-definida)</option>
+							<option value="area">Selecionar Área na Página</option>
+							<option value="entire">Página Inteira Visível</option>
+						</select>
+					</div>
+					<div id="fixedCaptureSettings" class="sub-settings" style="display: none">
+						<p>Coordenadas para captura fixa (X, Y, Largura, Altura):</p>
+						<input type="number" id="fixedX" placeholder="X" style="width: 60px" />
+						<input type="number" id="fixedY" placeholder="Y" style="width: 60px" />
+						<input type="number" id="fixedWidth" placeholder="Largura" style="width: 80px" />
+						<input type="number" id="fixedHeight" placeholder="Altura" style="width: 80px" />
+					</div>
+
+					<div class="form-group">
+						<label for="exhibitionMode">Modo de Exibição da Resposta:</label>
+						<select id="exhibitionMode">
+							<option value="modal">Pop-up na Página</option>
+							<option value="title">Título da Página</option>
+						</select>
+					</div>
+					<div id="modalSettings" class="sub-settings">
+						<label for="modalOpacity">Opacidade do Pop-up (0.1 a 1.0):</label>
+						<input type="number" id="modalOpacity" min="0.1" max="1.0" step="0.1" />
+					</div>
+					<div id="titleSettings" class="sub-settings" style="display: none">
+						<label for="titleDelay">Tempo para reverter título (segundos, 0 = não reverter):</label>
+						<input type="number" id="titleDelay" min="0" step="0.5" />
+					</div>
+
+					<div class="form-group">
+						<label for="selectedModel">Modelo de IA:</label>
+						<select id="selectedModel"></select>
+						<p id="modelInfo" class="small-text"></p>
+					</div>
+					<div class="form-group">
+						<label for="temperature">Temperatura da IA (Criatividade - 0.1 a 1.0):</label>
+						<input type="number" id="temperature" min="0.1" max="1.0" step="0.1" />
+					</div>
+					<button type="submit" id="saveSettingsButton">Salvar Configurações</button>
+				</form>
+			</div>
+		</div>
+		<script src="options.js"></script>
+	</body>
+</html>
