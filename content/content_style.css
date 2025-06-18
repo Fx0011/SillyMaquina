@@ -1,0 +1,77 @@
+#silly-maquina-float-icon {
+	position: fixed;
+	bottom: 20px;
+	right: 20px;
+	width: 50px;
+	height: 50px;
+	background-color: #6a5acd;
+	color: white;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 24px;
+	cursor: pointer;
+	z-index: 2147483644;
+	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+	transition: transform 0.2s ease-out, background-color 0.2s ease-out;
+	user-select: none;
+}
+
+#silly-maquina-float-icon:hover {
+	transform: scale(1.1);
+	background-color: #7b68ee;
+}
+
+#silly-maquina-float-icon.processing {
+	animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+	0% {
+		box-shadow: 0 0 0 0 rgba(123, 104, 238, 0.7);
+	}
+	70% {
+		box-shadow: 0 0 0 15px rgba(123, 104, 238, 0);
+	}
+	100% {
+		box-shadow: 0 0 0 0 rgba(123, 104, 238, 0);
+	}
+}
+
+#silly-maquina-selection-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 100vh;
+	background-color: rgba(0, 0, 0, 0.5);
+	z-index: 2147483646;
+	cursor: crosshair;
+}
+
+#silly-maquina-selection-box {
+	position: absolute;
+	border: 2px dashed #6a5acd;
+	background-color: rgba(106, 90, 205, 0.2);
+}
+
+#silly-maquina-result-popup {
+	position: fixed;
+	top: 20px;
+	right: 20px;
+	background-color: #1f1f23;
+	color: #e4e4e7;
+	border: 1px solid #303034;
+	border-left: 4px solid #6a5acd;
+	padding: 15px 20px;
+	border-radius: 8px;
+	box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+	z-index: 2147483647;
+	font-family: "Torus", "Inter", sans-serif;
+	font-size: 16px;
+	max-width: 350px;
+	cursor: pointer;
+	opacity: 1;
+	transition: opacity 0.3s ease-out;
+}

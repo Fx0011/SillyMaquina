@@ -1,48 +1,42 @@
 {
 	"manifest_version": 3,
-	"name": "Silly Maquina",
+	"name": "SillyMaquina",
 	"version": "1.0.0",
-	"description": "Assistente para auxiliar em questões de múltipla escolha.",
+	"description": "Seu assistente de IA para capturar, analisar e otimizar seu fluxo de estudo.",
 	"permissions": ["storage", "activeTab", "scripting", "notifications", "alarms"],
-	"host_permissions": ["https://sillymaquina.vercel.app/*"],
-	"options_page": "options.html",
+	"host_permissions": ["<all_urls>"],
+	"background": {
+		"service_worker": "background.js"
+	},
 	"action": {
-		"default_popup": "popup.html",
+		"default_popup": "popup/popup.html",
 		"default_icon": {
 			"16": "icons/icon16.png",
-			"32": "icons/icon32.png",
 			"48": "icons/icon48.png",
 			"128": "icons/icon128.png"
 		}
 	},
-	"background": {
-		"service_worker": "background.js"
-	},
-	"content_scripts": [
-		{
-			"matches": ["<all_urls>"],
-			"js": ["content_script.js"],
-			"css": ["content_style.css"]
-		}
-	],
-	"commands": {
-		"take_screenshot": {
-			"suggested_key": {
-				"default": "Alt+C",
-				"mac": "Alt+C"
-			},
-			"description": "Capturar tela para análise"
-		}
-	},
+	"options_page": "options/options.html",
 	"icons": {
 		"16": "icons/icon16.png",
-		"32": "icons/icon32.png",
 		"48": "icons/icon48.png",
 		"128": "icons/icon128.png"
 	},
+	"content_scripts": [
+		{
+			"matches": ["http://*/*", "https://*/*"],
+			"js": ["content/content_script.js"],
+			"run_at": "document_idle"
+		}
+	],
 	"web_accessible_resources": [
 		{
-			"resources": ["area_select.html", "area_select.js", "modal.css"],
+			"resources": [
+				"assets/fonts/Torus-Regular.otf",
+				"content/content_style.css",
+				"vendor/fontawesome/all.min.css",
+				"vendor/fontawesome/webfonts/*"
+			],
 			"matches": ["<all_urls>"]
 		}
 	]
