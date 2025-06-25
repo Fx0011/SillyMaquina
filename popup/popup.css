@@ -1,0 +1,203 @@
+:root {
+	--popup-gradient: linear-gradient(145deg, #a777e3 0%, #6a5acd 100%);
+}
+
+body {
+	width: 320px;
+	margin: 0;
+	font-family: var(--font-family-sans);
+	color: var(--text-primary);
+	background: linear-gradient(270deg, var(--bg-primary), var(--bg-secondary), var(--bg-tertiary), var(--bg-primary));
+	background-size: 600% 600%;
+	animation: gradientAnimation 25s ease infinite;
+}
+
+@keyframes gradientAnimation {
+	0% {
+		background-position: 0% 50%;
+	}
+	50% {
+		background-position: 100% 50%;
+	}
+	100% {
+		background-position: 0% 50%;
+	}
+}
+
+.container {
+	padding: 20px;
+}
+
+.view {
+	display: none;
+	animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+h1,
+h2 {
+	text-align: center;
+	margin-top: 0;
+	margin-bottom: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	font-weight: 600;
+}
+
+h1 .logo.highlight-gradient,
+h2 .logo.highlight-gradient {
+	background: var(--popup-gradient);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}
+
+#login-form .form-group {
+	margin-bottom: 18px;
+}
+
+#login-form label {
+	font-size: 0.9em;
+	font-weight: 500;
+	color: var(--text-secondary);
+	margin-bottom: 8px;
+}
+
+#login-form input[type="text"],
+#login-form input[type="password"] {
+	padding: 12px 15px;
+	font-size: 1em;
+	background-color: var(--bg-tertiary);
+	border: 1px solid var(--border-primary);
+}
+
+#login-form input:focus {
+	border-color: var(--accent-primary);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 25%, transparent);
+}
+
+#login-button {
+	width: 100%;
+	padding: 12px;
+	font-size: 1.05em;
+	background: var(--popup-gradient);
+	border: none;
+	margin-top: 10px;
+}
+
+#login-button:hover:not(:disabled) {
+	filter: brightness(1.15);
+	transform: translateY(-2px);
+	box-shadow: 0 4px 15px rgba(106, 90, 205, 0.3);
+}
+
+.welcome-header {
+	display: flex;
+	align-items: center;
+	gap: 15px;
+	padding: 10px;
+	background-color: var(--surface-primary);
+	border-radius: var(--border-radius-md);
+	margin-bottom: 15px;
+}
+
+.user-avatar {
+	font-size: 2.5em;
+	color: var(--accent-primary);
+	background: var(--surface-secondary);
+	width: 50px;
+	height: 50px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.welcome-text h2 {
+	margin: 0;
+	font-size: 1.2em;
+	text-align: left;
+	justify-content: flex-start;
+}
+
+.welcome-text p {
+	margin: 0;
+	color: var(--text-secondary);
+	font-size: 0.9em;
+}
+
+.status-message {
+	text-align: center;
+	color: var(--text-secondary);
+	font-size: 0.95em;
+	margin-bottom: 25px;
+}
+
+.button-group {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+#options-button {
+	background-color: var(--surface-secondary);
+	border: 1px solid var(--border-primary);
+}
+
+#options-button:hover:not(:disabled) {
+	background-color: var(--border-primary);
+	border-color: var(--text-secondary);
+}
+
+#logout-button {
+	background-color: color-mix(in srgb, var(--accent-danger) 20%, transparent);
+	color: var(--accent-danger);
+	border: 1px solid var(--accent-danger);
+}
+
+#logout-button:hover:not(:disabled) {
+	background-color: var(--accent-danger);
+	color: white;
+}
+
+.message-area {
+	padding: 10px 12px;
+	border-radius: var(--border-radius-md);
+	margin-bottom: 15px;
+	font-size: 0.9em;
+	display: none;
+	text-align: center;
+	font-weight: 500;
+	border: 1px solid transparent;
+}
+.message-area.show {
+	display: block;
+	animation: fadeIn 0.3s;
+}
+.message-area.error {
+	background-color: color-mix(in srgb, var(--accent-danger) 15%, transparent);
+	color: var(--accent-danger);
+	border-color: color-mix(in srgb, var(--accent-danger) 40%, transparent);
+}
+.message-area.success {
+	background-color: color-mix(in srgb, var(--accent-success) 15%, transparent);
+	color: var(--accent-success);
+	border-color: color-mix(in srgb, var(--accent-success) 40%, transparent);
+}
+.message-area a {
+	color: inherit;
+	font-weight: 600;
+	text-decoration: underline;
+}
