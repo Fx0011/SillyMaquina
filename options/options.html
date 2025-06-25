@@ -285,18 +285,74 @@
 
 						<div id="guide" class="tab-pane">
 							<div class="guide-section">
-								<h3><i class="fas fa-rocket"></i> Começando</h3>
+								<h3><i class="fas fa-rocket"></i> Começando: Sua Primeira Captura</h3>
 								<p>
-									Bem-vindo ao SillyMaquina! Para começar, clique no ícone flutuante
+									Bem-vindo à SillyMaquina! Para começar, vá para a página de sua escolha (Geekie ou
+									Passe), aperte F5 ou refresque a página, e depois de refrescada, clique no ícone
+									flutuante
 									<i class="fas fa-robot" style="color: var(--accent-primary)"></i> que aparece no
-									canto inferior direito das páginas, ou use seu atalho de teclado (padrão: Alt+X).
+									canto inferior direito ou use seu atalho de teclado (padrão:
+									<strong>Alt+X</strong>).
 								</p>
+								<p style="margin-top: 15px"><strong>Estados do Ícone Flutuante:</strong></p>
+								<ul>
+									<li><strong>Normal:</strong> Pronto para ser usado.</li>
+									<li><strong>Pulsando:</strong> A IA está analisando sua imagem.</li>
+									<li>
+										<strong>Com Contador (30s):</strong> O sistema está em cooldown para garantir a
+										estabilidade. Aguarde o tempo zerar.
+									</li>
+								</ul>
 							</div>
 
 							<div class="guide-section">
 								<h3>
-									<i class="fas fa-check-circle" style="color: var(--accent-success)"></i> O Que
-									Fazer:
+									<i class="fas fa-cogs" style="color: var(--accent-primary)"></i> Entendendo as
+									Configurações
+								</h3>
+								<p>
+									A página de opções é seu painel de controle. Lembre-se de sempre clicar em
+									<strong>"Salvar Configurações"</strong> após fazer alterações.
+								</p>
+								<ul>
+									<li>
+										<strong>Modo de Exibição:</strong> Escolha entre um
+										<strong>Popup Pequeno</strong> (padrão) ou exibir a resposta no
+										<strong>Título da Página</strong> para um feedback mais discreto (O mais
+										recomendado pelo nosso time!).
+									</li>
+									<li>
+										<strong>Modelo de IA:</strong> Selecione o "cérebro" para sua análise.
+										<ul>
+											<li style="margin-top: 8px; border-left-color: var(--text-tertiary)">
+												<strong>Padrão:</strong> Rápido e ótimo para a maioria das questões.
+											</li>
+											<li style="border-left-color: var(--text-tertiary)">
+												<strong>Pesquisa Aprimorada:</strong> Mais lento, porém mais assertivo
+												para desafios complexos.
+											</li>
+											<li style="border-left-color: var(--text-tertiary)">
+												<strong>Reflexão:</strong> O mais poderoso. Demora para responder, pois
+												realiza um raciocínio profundo.
+											</li>
+										</ul>
+									</li>
+									<li>
+										<strong>Aparência:</strong> Mude o ícone flutuante, seu tamanho e opacidade para
+										deixar a extensão com a sua cara! Use o seletor de ícones para encontrar um que
+										você goste.
+									</li>
+									<li>
+										<strong>Histórico:</strong> Acesse suas capturas recentes. Você pode buscar,
+										favoritar e até adicionar tags para se organizar.
+									</li>
+								</ul>
+							</div>
+
+							<div class="guide-section">
+								<h3>
+									<i class="fas fa-check-circle" style="color: var(--accent-success)"></i> Dicas Para
+									o Sucesso
 								</h3>
 								<ul>
 									<li>
@@ -309,12 +365,8 @@
 										captura.
 									</li>
 									<li>
-										<strong>Defina seu Atalho:</strong> Na aba "Configurações", você pode definir um
-										atalho de teclado personalizado para agilizar suas capturas.
-									</li>
-									<li>
-										<strong>Personalize a Aparência:</strong> Use a aba "Aparência" para mudar o
-										ícone flutuante e sua opacidade, deixando a extensão com a sua cara.
+										<strong>Personalize seu Atalho:</strong> Na aba "Configurações", você pode
+										definir um atalho de teclado que seja mais confortável para você.
 									</li>
 								</ul>
 							</div>
@@ -322,7 +374,7 @@
 							<div class="guide-section">
 								<h3>
 									<i class="fas fa-times-circle" style="color: var(--accent-danger)"></i> O Que Não
-									Fazer:
+									Fazer
 								</h3>
 								<ul>
 									<li>
@@ -337,9 +389,28 @@
 									<li>
 										<strong>Não Envie Múltiplas Requisições Rápidas:</strong> A extensão possui um
 										limite de tempo entre as capturas para garantir o bom funcionamento. Aguarde a
-										resposta da captura anterior antes de iniciar uma nova. Lembre-se que alguns
-										modelos são de pensamento, ou seja, eles demoram para responder, mas entregam as
-										melhores respostas!
+										resposta da captura anterior antes de iniciar uma nova.
+									</li>
+								</ul>
+							</div>
+
+							<div class="guide-section">
+								<h3>
+									<i class="fas fa-shield-halved" style="color: var(--accent-info)"></i> Segurança e
+									Privacidade
+								</h3>
+								<p>Sua confiança é nossa prioridade. Fique tranquilo, pois:</p>
+								<ul>
+									<li>
+										As imagens capturadas são processadas e <strong>descartadas</strong>, nunca são
+										armazenadas em nossos servidores.
+									</li>
+									<li>
+										Seu histórico de capturas fica salvo <strong>apenas localmente</strong>, no seu
+										navegador.
+									</li>
+									<li>
+										Toda a comunicação é protegida com <strong>criptografia SSL (HTTPS)</strong>.
 									</li>
 								</ul>
 							</div>
