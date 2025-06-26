@@ -11,6 +11,8 @@ const DEFAULT_CONFIG = {
 	fixedCoords: null,
 	historySize: 50,
 	appearance: {
+		hideIcon: false,
+		cooldownInTitle: true,
 		iconClass: "",
 		iconSize: 50,
 		iconOpacity: 1.0,
@@ -189,33 +191,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 			})();
 			break;
 
-			case "SAVE_USER_SETTINGS":
-				(async () => {
-					try {
-						const { token } = await chrome.storage.local.get("token");
-						if (!token) {
-							return sendResponse({ success: false, error: "Usuário não autenticado." });
-						}
-	
-						await api.saveUserSettings(token, message.payload.extensionConfigs);
-	
-						const freshUser = await api.fetchUserData(token);
-	
-						if (freshUser.extensionConfigs) {
-							const localConfig = transformServerConfigToLocal(freshUser.extensionConfigs);
-							await chrome.storage.sync.set({ config: localConfig });
-						}
-	
-						await chrome.storage.local.set({ user: freshUser });
-	
-						sendResponse({ success: true });
-					} catch (err) {
-						console.error("Failed to save user settings:", err);
-						sendResponse({ success: false, error: err.message });
+		case "SAVE_USER_SETTINGS":
+			(async () => {
+				try {
+					const { token } = await chrome.storage.local.get("token");
+					if (!token) {
+						return sendResponse({ success: false, error: "Usuário não autenticado." });
 					}
-				})();
-				break;
-	
+
+					await api.saveUserSettings(token, message.payload.extensionConfigs);
+
+					const freshUser = await api.fetchUserData(token);
+
+					if (freshUser.extensionConfigs) {
+						const localConfig = transformServerConfigToLocal(freshUser.extensionConfigs);
+						await chrome.storage.sync.set({ config: localConfig });
+					}
+
+					await chrome.storage.local.set({ user: freshUser });
+
+					sendResponse({ success: true });
+				} catch (err) {
+					console.error("Failed to save user settings:", err);
+					sendResponse({ success: false, error: err.message });
+				}
+			})();
+			break;
 
 		case "CAPTURE_SCREEN":
 			(async () => {

@@ -31,12 +31,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 	const iconOpacityValue = document.getElementById("icon-opacity-value");
 	const popupOpacitySlider = document.getElementById("popup-opacity");
 	const popupOpacityValue = document.getElementById("popup-opacity-value");
+	const hideIconToggle = document.getElementById("hide-icon-toggle");
+	const cooldownTitleSettingGroup = document.getElementById("cooldown-title-setting-group");
+	const cooldownInTitleToggle = document.getElementById("cooldown-in-title-toggle");
+
+	const popupOpacityGroup = document.getElementById("popup-opacity-group");
+	const iconPreview = document.getElementById("icon-preview");
+	const iconPreviewElement = document.getElementById("icon-preview-element");
 
 	const historySizeInput = document.getElementById("history-size-input");
 	const historySearchInput = document.getElementById("history-search-input");
 	const historyFavoritesToggle = document.getElementById("history-favorites-toggle");
 	const historyListContainer = document.getElementById("history-list-container");
 	const clearHistoryButton = document.getElementById("clear-history-button");
+
+	const guideTabPane = document.getElementById("guide");
 
 	const modelUsageChartCanvas = document.getElementById("model-usage-chart");
 
@@ -55,7 +64,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 		displayMode: "popup",
 		titleRevertDelay: 5,
 		fixedCoords: null,
-		appearance: { iconClass: "fas fa-robot", iconSize: 50, iconOpacity: 1.0, popupOpacity: 1.0 },
+		appearance: {
+			iconClass: "fas fa-robot",
+			iconSize: 50,
+			iconOpacity: 1.0,
+			popupOpacity: 1.0,
+			hideIcon: false,
+			cooldownInTitle: true,
+		},
 		selectedModel: "",
 		temperature: 0.4,
 		shortcut: "Alt+X",
@@ -134,6 +150,29 @@ document.addEventListener("DOMContentLoaded", async () => {
 		}, 3000);
 	}
 
+	function toggleCooldownTitleVisibility() {
+		cooldownTitleSettingGroup.style.display = hideIconToggle.checked ? "block" : "none";
+	}
+
+	function togglePopupOpacityVisibility() {
+		const isPopupSelected = document.querySelector('input[name="displayMode"][value="popup"]').checked;
+		popupOpacityGroup.style.display = isPopupSelected ? "block" : "none";
+	}
+
+	function updateIconPreview() {
+		if (!iconPreview || !iconPreviewElement) return;
+
+		const iconClass = iconClassInput.value.trim() || "fas fa-question-circle";
+		const iconSize = parseInt(iconSizeSlider.value, 10);
+		const iconOpacity = parseFloat(iconOpacitySlider.value);
+
+		iconPreviewElement.className = iconClass;
+		iconPreview.style.width = `${iconSize}px`;
+		iconPreview.style.height = `${iconSize}px`;
+		iconPreview.style.opacity = iconOpacity;
+		iconPreviewElement.style.fontSize = `${iconSize * 0.45}px`;
+	}
+
 	function loadSettings() {
 		chrome.storage.sync.get("config", (data) => {
 			const config = { ...DEFAULT_CONFIG, ...(data.config || {}) };
@@ -157,6 +196,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 			document.querySelector(`input[name="displayMode"][value="${config.displayMode}"]`).checked = true;
 			titleRevertDelayInput.value = config.titleRevertDelay;
 			titleRevertGroup.style.display = config.displayMode === "titulo" ? "block" : "none";
+			hideIconToggle.checked = !!config.appearance.hideIcon;
+			cooldownInTitleToggle.checked = config.appearance.cooldownInTitle;
 			iconClassInput.value = config.appearance.iconClass;
 			iconSizeSlider.value = config.appearance.iconSize;
 			iconSizeValue.textContent = config.appearance.iconSize;
@@ -172,6 +213,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 				aiModelSelect.value = config.selectedModel;
 			}
 			updateModelUsageInfo();
+			toggleCooldownTitleVisibility();
+			togglePopupOpacityVisibility();
+			updateIconPreview();
 
 			if (typeof config.temperature !== "undefined") {
 				aiTemperatureSlider.value = config.temperature;
@@ -194,6 +238,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 				iconSize: parseInt(iconSizeSlider.value, 10),
 				iconOpacity: parseFloat(iconOpacitySlider.value),
 				popupOpacity: parseFloat(popupOpacitySlider.value),
+				hideIcon: hideIconToggle.checked,
+				cooldownInTitle: cooldownInTitleToggle.checked,
 			},
 			selectedModel: aiModelSelect.value,
 			temperature: parseFloat(aiTemperatureSlider.value),
@@ -500,6 +546,28 @@ document.addEventListener("DOMContentLoaded", async () => {
 		}
 	}
 
+	function renderGuideContent() {
+		if (!guideTabPane || typeof guideContent === "undefined") {
+			console.error("Elemento do guia ou conteúdo do guia não encontrado.");
+			return;
+		}
+
+		guideTabPane.innerHTML = "";
+
+		guideContent.forEach((section) => {
+			const sectionEl = document.createElement("div");
+			sectionEl.className = "guide-section";
+			sectionEl.id = section.id;
+
+			sectionEl.innerHTML = `
+                <h3><i class="${section.icon}" style="color: var(--accent-primary);"></i> ${section.title}</h3>
+                ${section.content}
+            `;
+
+			guideTabPane.appendChild(sectionEl);
+		});
+	}
+
 	document.addEventListener("visibilitychange", () => {
 		if (!document.hidden) {
 			fetchFreshData();
@@ -507,6 +575,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 		} else {
 			stopDataRefresh();
 		}
+	});
+
+	hideIconToggle.addEventListener("change", toggleCooldownTitleVisibility);
+
+	iconClassInput.addEventListener("input", updateIconPreview);
+	iconSizeSlider.addEventListener("input", (e) => {
+		iconSizeValue.textContent = e.target.value;
+		updateIconPreview();
+	});
+	iconOpacitySlider.addEventListener("input", (e) => {
+		iconOpacityValue.textContent = parseFloat(e.target.value).toFixed(1);
+		updateIconPreview();
 	});
 
 	tabs.forEach((tab) => {
@@ -528,6 +608,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 	displayModeRadios.forEach((radio) => {
 		radio.addEventListener("change", (e) => {
 			titleRevertGroup.style.display = e.target.value === "titulo" ? "block" : "none";
+			togglePopupOpacityVisibility();
 		});
 	});
 
@@ -663,4 +744,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 			});
 		}
 	});
+
+	renderGuideContent();
 });

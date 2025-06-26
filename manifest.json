@@ -1,7 +1,7 @@
 {
 	"manifest_version": 3,
 	"name": "SillyMaquina",
-	"version": "1.1.1",
+	"version": "1.1.2",
 	"description": "Seu assistente de IA para capturar, analisar e otimizar seu fluxo de estudo.",
 	"permissions": ["storage", "activeTab", "scripting", "notifications", "alarms"],
 	"host_permissions": ["<all_urls>"],

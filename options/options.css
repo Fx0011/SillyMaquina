@@ -938,3 +938,136 @@ select:focus {
 		margin-top: 10px;
 	}
 }
+
+.checkbox-option {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.checkbox-option label {
+	cursor: pointer;
+	font-weight: 500;
+	color: var(--text-primary);
+}
+
+.checkbox-option input[type="checkbox"] {
+	appearance: none;
+	-webkit-appearance: none;
+	position: relative;
+	width: 48px;
+	height: 26px;
+	background-color: var(--bg-tertiary);
+	border: 1px solid var(--border-primary);
+	border-radius: 13px;
+	cursor: pointer;
+	transition: background-color 0.2s ease-out;
+}
+
+.checkbox-option input[type="checkbox"]::before {
+	content: "";
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 20px;
+	height: 20px;
+	background-color: var(--text-secondary);
+	border-radius: 50%;
+	transition: transform 0.2s ease-out, background-color 0.2s ease-out;
+}
+
+.checkbox-option input[type="checkbox"]:checked {
+	background-color: var(--accent-success);
+	border-color: var(--accent-success);
+}
+
+.checkbox-option input[type="checkbox"]:checked::before {
+	background-color: white;
+	transform: translateX(22px);
+}
+
+.appearance-settings-container {
+	display: flex;
+	gap: 35px;
+	align-items: flex-start;
+}
+
+.appearance-controls {
+	flex: 2;
+}
+
+.icon-preview-container {
+	flex: 1;
+	padding: 20px;
+	background-color: var(--bg-tertiary);
+	border-radius: var(--border-radius-lg);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	position: sticky;
+	top: 20px;
+	min-height: 250px;
+}
+
+.preview-title {
+	font-weight: 500;
+	color: var(--text-secondary);
+	margin-bottom: 20px;
+	font-size: 0.9em;
+}
+
+#icon-preview {
+	background-color: var(--accent-primary);
+	color: white;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+	transition: all 0.2s ease-out;
+}
+
+#popup-opacity-group {
+	padding: 15px;
+	margin-top: 10px;
+	margin-left: 30px;
+	border-left: 3px solid var(--border-primary);
+	background-color: color-mix(in srgb, var(--surface-secondary) 50%, transparent);
+	border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0;
+	transition: all var(--transition-slow);
+}
+
+@media (max-width: 900px) {
+	.appearance-settings-container {
+		flex-direction: column;
+		align-items: stretch;
+	}
+	.icon-preview-container {
+		position: static;
+		margin-top: 20px;
+	}
+}
+
+.guide-section ol,
+.guide-section ul {
+	list-style: none;
+	margin-top: 15px;
+	padding-left: 20px;
+	padding-right: 20px;
+}
+
+.guide-section li::before {
+	display: none;
+}
+
+.guide-section li {
+	padding-right: 20px;
+	padding-left: 20px;
+	margin-bottom: 16px;
+	line-height: 1.6;
+}
+
+.guide-section ul {
+	margin-top: 10px;
+}

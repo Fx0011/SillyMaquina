@@ -14,6 +14,8 @@ document.addEventListener("DOMContentLoaded", () => {
 	const btnText = loginButton.querySelector(".btn-text");
 	const btnSpinner = loginButton.querySelector(".btn-spinner");
 
+	const userAvatarIcon = loggedInView.querySelector(".user-avatar");
+
 	const compareVersions = (v1, v2) => {
 		const parts1 = v1.split(".").map(Number);
 		const parts2 = v2.split(".").map(Number);
@@ -70,6 +72,12 @@ document.addEventListener("DOMContentLoaded", () => {
 		if (session && session.token && session.user) {
 			loggedInView.style.display = "block";
 			popupUserName.textContent = session.user.name || session.user.user;
+
+			if (userAvatarIcon) {
+				const userConfig = session.user.extensionConfigs;
+				const iconClass = userConfig?.appearance?.iconClass || "fas fa-user-astronaut";
+				userAvatarIcon.className = `user-avatar ${iconClass}`;
+			}
 		} else {
 			loginView.style.display = "block";
 		}

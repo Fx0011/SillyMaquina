@@ -11,6 +11,7 @@
 			referrerpolicy="no-referrer"
 		/>
 		<script src="../content/chart.js"></script>
+		<script src="guideContent.js"></script>
 		<link rel="stylesheet" href="../common/style.css" />
 		<link rel="stylesheet" href="options.css" />
 	</head>
@@ -34,9 +35,6 @@
 						</button>
 						<button class="tab-link" data-tab="settings">
 							<i class="fas fa-sliders-h"></i> <span class="tab-text">Configurações</span>
-						</button>
-						<button class="tab-link" data-tab="appearance">
-							<i class="fas fa-palette"></i> <span class="tab-text">Aparência</span>
 						</button>
 						<button class="tab-link" data-tab="history">
 							<i class="fas fa-history"></i>
@@ -129,6 +127,18 @@
 									<input type="radio" id="display-popup" name="displayMode" value="popup" />
 									<label for="display-popup">Popup Pequeno</label>
 								</div>
+								<div id="popup-opacity-group" style="display: none">
+									<div class="form-group">
+										<label>Opacidade do Popup de Resposta</label>
+										<div class="slider-group">
+											<span>0.1</span>
+											<input type="range" id="popup-opacity" min="0.1" max="1.0" step="0.1" />
+											<span>1.0</span>
+											<strong id="popup-opacity-value">1.0</strong>
+										</div>
+									</div>
+								</div>
+
 								<div class="radio-option">
 									<input type="radio" id="display-titulo" name="displayMode" value="titulo" />
 									<label for="display-titulo">Título da Página</label>
@@ -138,6 +148,87 @@
 										>Atraso para reverter título (segundos, 0 para não reverter)</label
 									>
 									<input type="number" id="title-revert-delay" min="0" value="5" />
+								</div>
+							</div>
+
+							<div class="settings-group">
+								<h3 class="settings-group-title"><i class="fas fa-magic"></i> Aparência e Atalhos</h3>
+								<div class="appearance-settings-container">
+									<div class="appearance-controls">
+										<div class="form-group">
+											<div class="checkbox-option">
+												<input type="checkbox" id="hide-icon-toggle" />
+												<label for="hide-icon-toggle">Ocultar Ícone Flutuante</label>
+											</div>
+										</div>
+										<div id="cooldown-title-setting-group" style="display: none">
+											<div class="form-group">
+												<div class="checkbox-option">
+													<input type="checkbox" id="cooldown-in-title-toggle" />
+													<label for="cooldown-in-title-toggle"
+														>Exibir Cooldown no Título</label
+													>
+												</div>
+											</div>
+										</div>
+										<div class="form-group">
+											<label for="icon-class">Ícone (Font Awesome)</label>
+											<div style="display: flex; gap: 10px; align-items: center">
+												<input
+													type="text"
+													id="icon-class"
+													placeholder="Ex: fas fa-rocket"
+													style="flex-grow: 1"
+												/>
+												<a
+													href="https://sillymaquina.vercel.app/icon-picker"
+													target="_blank"
+													class="btn btn-secondary"
+													style="width: auto; flex-shrink: 0"
+													title="Abrir seletor de ícones"
+												>
+													<i class="fas fa-icons"></i>
+												</a>
+											</div>
+										</div>
+										<div class="form-group">
+											<label>Tamanho do Ícone (px)</label>
+											<div class="slider-group">
+												<span>30</span>
+												<input type="range" id="icon-size" min="30" max="80" step="1" />
+												<span>80</span>
+												<strong id="icon-size-value">50</strong>
+											</div>
+										</div>
+										<div class="form-group">
+											<label>Opacidade do Ícone</label>
+											<div class="slider-group">
+												<span>0.1</span>
+												<input type="range" id="icon-opacity" min="0.1" max="1.0" step="0.1" />
+												<span>1.0</span>
+												<strong id="icon-opacity-value">1.0</strong>
+											</div>
+										</div>
+										<div class="form-group">
+											<label for="shortcut-input">Atalho de Captura</label>
+											<input
+												type="text"
+												id="shortcut-input"
+												placeholder="Clique e pressione as teclas"
+												readonly
+											/>
+											<small style="color: var(--text-tertiary); margin-top: 8px; display: block"
+												>Use combinações como Alt+X, Ctrl+Shift+C, etc. Clique em "Salvar
+												Configurações" para sincronizar com o servidor.</small
+											>
+										</div>
+									</div>
+									<div class="icon-preview-container">
+										<p class="preview-title">Pré-visualização</p>
+										<div id="icon-preview">
+											<i id="icon-preview-element" class="fas fa-robot"></i>
+										</div>
+									</div>
 								</div>
 							</div>
 
@@ -164,23 +255,6 @@
 							</div>
 
 							<div class="settings-group">
-								<h3 class="settings-group-title"><i class="fas fa-keyboard"></i> Atalho de Captura</h3>
-								<div class="form-group">
-									<label for="shortcut-input">Combinação de Teclas</label>
-									<input
-										type="text"
-										id="shortcut-input"
-										placeholder="Clique aqui e pressione a combinação de teclas"
-										readonly
-									/>
-									<small style="color: var(--text-tertiary); margin-top: 8px; display: block"
-										>Use combinações como Alt+X, Ctrl+Shift+C, etc. Clique em "Salvar Configurações"
-										para sincronizar com o servidor.</small
-									>
-								</div>
-							</div>
-
-							<div class="settings-group">
 								<h3 class="settings-group-title"><i class="fas fa-save"></i> Histórico Local</h3>
 								<div class="form-group">
 									<label for="history-size-input">Tamanho do Histórico (Nº de capturas salvas)</label>
@@ -189,61 +263,6 @@
 										>Valor entre 10 e 200. Um número maior pode consumir mais espaço em
 										disco.</small
 									>
-								</div>
-							</div>
-						</div>
-
-						<div id="appearance" class="tab-pane">
-							<div class="settings-group">
-								<h3 class="settings-group-title">
-									<i class="fas fa-magic"></i> Aparência do Ícone Flutuante
-								</h3>
-								<div class="form-group">
-									<label for="icon-class">Classe do Ícone Font Awesome</label>
-									<div style="display: flex; gap: 10px; align-items: center">
-										<input
-											type="text"
-											id="icon-class"
-											placeholder="Ex: fas fa-rocket"
-											style="flex-grow: 1"
-										/>
-										<a
-											href="https://sillymaquina.vercel.app/icon-picker"
-											target="_blank"
-											class="btn btn-secondary"
-											style="width: auto; flex-shrink: 0"
-											title="Abrir seletor de ícones"
-										>
-											<i class="fas fa-icons"></i>
-										</a>
-									</div>
-								</div>
-								<div class="form-group">
-									<label>Tamanho do Ícone (px)</label>
-									<div class="slider-group">
-										<span>30</span>
-										<input type="range" id="icon-size" min="30" max="80" step="1" />
-										<span>80</span>
-										<strong id="icon-size-value">50</strong>
-									</div>
-								</div>
-								<div class="form-group">
-									<label>Opacidade do Ícone</label>
-									<div class="slider-group">
-										<span>0.1</span>
-										<input type="range" id="icon-opacity" min="0.1" max="1.0" step="0.1" />
-										<span>1.0</span>
-										<strong id="icon-opacity-value">1.0</strong>
-									</div>
-								</div>
-								<div class="form-group">
-									<label>Opacidade do Popup de Resposta</label>
-									<div class="slider-group">
-										<span>0.1</span>
-										<input type="range" id="popup-opacity" min="0.1" max="1.0" step="0.1" />
-										<span>1.0</span>
-										<strong id="popup-opacity-value">1.0</strong>
-									</div>
 								</div>
 							</div>
 						</div>
@@ -278,143 +297,10 @@
 								</button>
 							</div>
 
-							<div id="history-list-container">
-								<!-- History items will be dynamically inserted here -->
-							</div>
+							<div id="history-list-container"></div>
 						</div>
 
-						<div id="guide" class="tab-pane">
-							<div class="guide-section">
-								<h3><i class="fas fa-rocket"></i> Começando: Sua Primeira Captura</h3>
-								<p>
-									Bem-vindo à SillyMaquina! Para começar, vá para a página de sua escolha (Geekie ou
-									Passe), aperte F5 ou refresque a página, e depois de refrescada, clique no ícone
-									flutuante
-									<i class="fas fa-robot" style="color: var(--accent-primary)"></i> que aparece no
-									canto inferior direito ou use seu atalho de teclado (padrão:
-									<strong>Alt+X</strong>).
-								</p>
-								<p style="margin-top: 15px"><strong>Estados do Ícone Flutuante:</strong></p>
-								<ul>
-									<li><strong>Normal:</strong> Pronto para ser usado.</li>
-									<li><strong>Pulsando:</strong> A IA está analisando sua imagem.</li>
-									<li>
-										<strong>Com Contador (30s):</strong> O sistema está em cooldown para garantir a
-										estabilidade. Aguarde o tempo zerar.
-									</li>
-								</ul>
-							</div>
-
-							<div class="guide-section">
-								<h3>
-									<i class="fas fa-cogs" style="color: var(--accent-primary)"></i> Entendendo as
-									Configurações
-								</h3>
-								<p>
-									A página de opções é seu painel de controle. Lembre-se de sempre clicar em
-									<strong>"Salvar Configurações"</strong> após fazer alterações.
-								</p>
-								<ul>
-									<li>
-										<strong>Modo de Exibição:</strong> Escolha entre um
-										<strong>Popup Pequeno</strong> (padrão) ou exibir a resposta no
-										<strong>Título da Página</strong> para um feedback mais discreto (O mais
-										recomendado pelo nosso time!).
-									</li>
-									<li>
-										<strong>Modelo de IA:</strong> Selecione o "cérebro" para sua análise.
-										<ul>
-											<li style="margin-top: 8px; border-left-color: var(--text-tertiary)">
-												<strong>Padrão:</strong> Rápido e ótimo para a maioria das questões.
-											</li>
-											<li style="border-left-color: var(--text-tertiary)">
-												<strong>Pesquisa Aprimorada:</strong> Mais lento, porém mais assertivo
-												para desafios complexos.
-											</li>
-											<li style="border-left-color: var(--text-tertiary)">
-												<strong>Reflexão:</strong> O mais poderoso. Demora para responder, pois
-												realiza um raciocínio profundo.
-											</li>
-										</ul>
-									</li>
-									<li>
-										<strong>Aparência:</strong> Mude o ícone flutuante, seu tamanho e opacidade para
-										deixar a extensão com a sua cara! Use o seletor de ícones para encontrar um que
-										você goste.
-									</li>
-									<li>
-										<strong>Histórico:</strong> Acesse suas capturas recentes. Você pode buscar,
-										favoritar e até adicionar tags para se organizar.
-									</li>
-								</ul>
-							</div>
-
-							<div class="guide-section">
-								<h3>
-									<i class="fas fa-check-circle" style="color: var(--accent-success)"></i> Dicas Para
-									o Sucesso
-								</h3>
-								<ul>
-									<li>
-										<strong>Use Imagens Claras:</strong> Para melhores resultados, capture imagens
-										nítidas, com bom contraste e texto legível.
-									</li>
-									<li>
-										<strong>Capture a Questão Inteira:</strong> Certifique-se de que tanto o
-										enunciado quanto todas as alternativas da questão estejam dentro da área de
-										captura.
-									</li>
-									<li>
-										<strong>Personalize seu Atalho:</strong> Na aba "Configurações", você pode
-										definir um atalho de teclado que seja mais confortável para você.
-									</li>
-								</ul>
-							</div>
-
-							<div class="guide-section">
-								<h3>
-									<i class="fas fa-times-circle" style="color: var(--accent-danger)"></i> O Que Não
-									Fazer
-								</h3>
-								<ul>
-									<li>
-										<strong>Não Capture Imagens Borradas:</strong> A IA terá dificuldade em ler
-										texto que não esteja claro ou que esteja com baixa resolução.
-									</li>
-									<li>
-										<strong>Evite Capturar Apenas a Resposta:</strong> A IA precisa do contexto
-										completo da pergunta para funcionar corretamente. Não capture apenas as
-										alternativas.
-									</li>
-									<li>
-										<strong>Não Envie Múltiplas Requisições Rápidas:</strong> A extensão possui um
-										limite de tempo entre as capturas para garantir o bom funcionamento. Aguarde a
-										resposta da captura anterior antes de iniciar uma nova.
-									</li>
-								</ul>
-							</div>
-
-							<div class="guide-section">
-								<h3>
-									<i class="fas fa-shield-halved" style="color: var(--accent-info)"></i> Segurança e
-									Privacidade
-								</h3>
-								<p>Sua confiança é nossa prioridade. Fique tranquilo, pois:</p>
-								<ul>
-									<li>
-										As imagens capturadas são processadas e <strong>descartadas</strong>, nunca são
-										armazenadas em nossos servidores.
-									</li>
-									<li>
-										Seu histórico de capturas fica salvo <strong>apenas localmente</strong>, no seu
-										navegador.
-									</li>
-									<li>
-										Toda a comunicação é protegida com <strong>criptografia SSL (HTTPS)</strong>.
-									</li>
-								</ul>
-							</div>
-						</div>
+						<div id="guide" class="tab-pane"></div>
 
 						<div id="contact" class="tab-pane">
 							<div class="contact-card">
