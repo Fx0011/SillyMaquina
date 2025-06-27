@@ -158,14 +158,19 @@
 			}
 
 			chrome.storage.sync.get("config", ({ config }) => {
-				if (!config?.appearance?.hideIcon) return;
+				if (config?.displayMode !== "titulo") return;
 
-				if (aiResponseForTitle && Date.now() < aiResponseDisplayUntil) {
-					document.title = aiResponseForTitle;
+				if (aiResponseForTitle && (aiResponseDisplayUntil === -1 || Date.now() < aiResponseDisplayUntil)) {
+					if (document.title !== aiResponseForTitle) {
+						document.title = aiResponseForTitle;
+					}
 				} else {
+					aiResponseForTitle = null;
 					if (isProcessing) {
-						document.title = "Analisando... | " + originalTitle;
-					} else if (config.appearance.cooldownInTitle) {
+						if (document.title !== "Analisando... | " + originalTitle) {
+							document.title = "Analisando... | " + originalTitle;
+						}
+					} else if (config?.appearance?.hideIcon && config?.appearance?.cooldownInTitle) {
 						document.title = `[${timeLeftSec}s] ${originalTitle}`;
 					} else {
 						if (document.title !== originalTitle) {
@@ -201,13 +206,12 @@
 				aiResponseDisplayUntil = Date.now() + revertDelay;
 			} else {
 				if (displayMode === "titulo") {
-					document.title = payload.text;
+					const revertDelay = (config?.titleRevertDelay || 5) * 1000;
+					aiResponseForTitle = payload.text;
 					if (revertDelay > 0) {
-						setTimeout(() => {
-							if (!isOnCooldown) {
-								document.title = originalTitle;
-							}
-						}, revertDelay);
+						aiResponseDisplayUntil = Date.now() + revertDelay;
+					} else {
+						aiResponseDisplayUntil = -1; 
 					}
 				} else {
 					let resultPopup = document.getElementById("silly-maquina-result-popup");
