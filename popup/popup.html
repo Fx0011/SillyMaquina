@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 	<head>
 		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>SillyMaquina</title>
 		<link
 			rel="stylesheet"
@@ -10,48 +11,97 @@
 			crossorigin="anonymous"
 			referrerpolicy="no-referrer"
 		/>
-		<link rel="stylesheet" href="../common/style.css" />
 		<link rel="stylesheet" href="popup.css" />
+		<link rel="stylesheet" href="modules.css" />
 	</head>
 	<body>
-		<div class="container">
-			<div id="login-view" class="view">
-				<h1><i class="fas fa-robot logo highlight-gradient"></i> Acessar</h1>
-				<div id="version-message-area" class="message-area"></div>
-				<div id="login-error" class="message-area"></div>
-				<form id="login-form">
-					<div class="form-group">
-						<label for="userId">ID de Usuário</label>
-						<input type="text" id="userId" name="userId" required autocomplete="username" />
-					</div>
-					<div class="form-group">
-						<label for="password">Senha</label>
-						<input type="password" id="password" name="password" required autocomplete="current-password" />
-					</div>
-					<button type="submit" id="login-button" class="btn btn-primary">
-						<span class="btn-text">Entrar</span>
-						<span class="btn-spinner" style="display: none"></span>
-					</button>
-				</form>
-			</div>
-
-			<div id="logged-in-view" class="view" style="display: none">
-				<div class="welcome-header">
-					<i class="fas fa-user-astronaut user-avatar"></i>
-					<div class="welcome-text">
-						<h2>Bem-vindo!</h2>
-						<p>Olá, <strong id="popup-user-name"></strong>!</p>
-					</div>
-				</div>
-				<p class="status-message">Você está conectado e pronto para usar a extensão.</p>
-				<div class="button-group">
-					<button id="options-button" class="btn btn-secondary">
-						<i class="fas fa-cog"></i> Abrir Opções
-					</button>
-					<button id="logout-button" class="btn btn-danger"><i class="fas fa-sign-out-alt"></i> Sair</button>
-				</div>
+		<div id="loadingScreen" class="screen">
+			<div class="loading-container">
+				<div class="spinner"></div>
+				<p class="loading-text">Carregando dados...</p>
 			</div>
 		</div>
+
+		<div id="loginScreen" class="screen hidden">
+			<div class="logo">
+				<i class="fas fa-robot"></i>
+				<h1>SillyMaquina</h1>
+			</div>
+
+			<div id="versionStatus"></div>
+
+			<form id="loginForm">
+				<div class="form-group">
+					<label for="email">Email</label>
+					<input type="email" id="email" required placeholder="seu@email.com" />
+				</div>
+
+				<div class="form-group">
+					<label for="password">Senha</label>
+					<input type="password" id="password" required placeholder="••••••••" />
+				</div>
+
+				<button type="submit" class="btn btn-primary"><i class="fas fa-sign-in-alt"></i> Entrar</button>
+
+				<div class="form-footer">
+					<a href="https://sillymaquina.netlify.app/register" target="_blank"> Criar conta </a>
+				</div>
+			</form>
+
+			<div id="loginError" class="error-message"></div>
+		</div>
+
+		<div id="mainScreen" class="screen hidden">
+			<div class="header">
+				<div class="user-info">
+					<div id="userIcon" class="user-icon"></div>
+					<div>
+						<div id="username" class="username"></div>
+						<div id="planBadge" class="plan-badge"></div>
+					</div>
+				</div>
+
+				<button id="logoutBtn" class="icon-btn" title="Sair">
+					<i class="fas fa-sign-out-alt"></i>
+				</button>
+			</div>
+
+			<div class="tokens-display">
+				<div class="tokens-label">Tokens Restantes</div>
+				<div class="tokens-bar">
+					<div id="tokensProgress" class="tokens-progress"></div>
+				</div>
+				<div id="tokensText" class="tokens-text"></div>
+			</div>
+
+			<nav class="nav-tabs">
+				<button class="nav-tab active" data-tab="dashboard"><i class="fas fa-chart-line"></i> Dashboard</button>
+				<button class="nav-tab" data-tab="settings"><i class="fas fa-cog"></i> Configurações</button>
+				<button class="nav-tab" data-tab="history"><i class="fas fa-history"></i> Histórico</button>
+				<button class="nav-tab" data-tab="support"><i class="fas fa-life-ring"></i> Suporte</button>
+			</nav>
+
+			<div class="tab-content">
+				<div id="dashboardTab" class="tab-pane active"></div>
+				<div id="settingsTab" class="tab-pane"></div>
+				<div id="historyTab" class="tab-pane"></div>
+				<div id="supportTab" class="tab-pane"></div>
+			</div>
+		</div>
+
+		<div id="updateModal" class="modal hidden">
+			<div class="modal-content">
+				<div class="modal-icon">
+					<i class="fas fa-exclamation-triangle"></i>
+				</div>
+				<h2>Extensão Desatualizada</h2>
+				<p>Por favor, atualize para continuar usando a extensão.</p>
+				<a href="#" id="updateLink" class="btn btn-primary" target="_blank">
+					<i class="fas fa-download"></i> Atualizar Agora
+				</a>
+			</div>
+		</div>
+
 		<script src="popup.js"></script>
 	</body>
 </html>

@@ -1,12 +1,13 @@
 {
 	"manifest_version": 3,
 	"name": "SillyMaquina",
-	"version": "1.1.3",
-	"description": "Seu assistente de IA para capturar, analisar e otimizar seu fluxo de estudo.",
-	"permissions": ["storage", "activeTab", "scripting", "notifications", "alarms"],
+	"version": "3.0.0",
+	"description": "Extensão para processamento de imagens com IA",
+	"permissions": ["storage", "activeTab", "scripting", "notifications", "tabs"],
 	"host_permissions": ["<all_urls>"],
 	"background": {
-		"service_worker": "background.js"
+		"service_worker": "background.js",
+		"type": "module"
 	},
 	"action": {
 		"default_popup": "popup/popup.html",
@@ -16,23 +17,23 @@
 			"128": "icons/icon128.png"
 		}
 	},
-	"options_page": "options/options.html",
-	"icons": {
-		"16": "icons/icon16.png",
-		"48": "icons/icon48.png",
-		"128": "icons/icon128.png"
-	},
 	"content_scripts": [
 		{
-			"matches": ["http://*/*", "https://*/*"],
-			"js": ["content/content_script.js"],
-			"run_at": "document_idle"
+			"matches": ["<all_urls>"],
+			"js": ["content/content.js"],
+			"css": ["content/content.css"],
+			"run_at": "document_end"
 		}
 	],
 	"web_accessible_resources": [
 		{
-			"resources": ["assets/fonts/Torus-Regular.otf", "content/content_style.css"],
+			"resources": ["content/*", "icons/*"],
 			"matches": ["<all_urls>"]
 		}
-	]
+	],
+	"icons": {
+		"16": "icons/icon16.png",
+		"48": "icons/icon48.png",
+		"128": "icons/icon128.png"
+	}
 }

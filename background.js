@@ -1,274 +1,237 @@
-try {
-	importScripts("./common/api.js");
-} catch (e) {
-	console.error(e);
-}
+const API_BASE_URL = "https://sillymaquina.vercel.app/api/v1";
 
-const DEFAULT_CONFIG = {
-	captureMode: "inteira",
-	displayMode: "popup",
-	titleRevertDelay: 5,
-	fixedCoords: null,
-	historySize: 50,
-	appearance: {
-		hideIcon: false,
-		cooldownInTitle: true,
-		iconClass: "",
-		iconSize: 50,
-		iconOpacity: 1.0,
-		popupOpacity: 1.0,
-	},
-	shortcut: "Alt+X",
-};
+chrome.runtime.onInstalled.addListener((details) => {
+	console.log("Extension installed/updated:", details.reason);
 
-const showNotification = (title, message, type = "basic") => {
-	chrome.notifications.create({
-		type: type,
-		iconUrl: "icons/icon128.png",
-		title: title,
-		message: message,
-		priority: 2,
-	});
-};
-
-const validPlanTypes = ["MENSAL", "ANUAL", "ADMIN"];
-
-async function performLogin(userId, password) {
-	try {
-		const data = await api.loginUser(userId, password);
-
-		if (data.user && validPlanTypes.includes(data.user.plan.type)) {
-			if (data.user.extensionConfigs) {
-				const localConfig = transformServerConfigToLocal(data.user.extensionConfigs);
-				await chrome.storage.sync.set({ config: localConfig });
-			}
-
-			await chrome.storage.local.set({ token: data.token, user: data.user });
-			await chrome.alarms.create("session-check", { periodInMinutes: 15 });
-			return { success: true, user: data.user };
-		} else {
-			return { success: false, error: "Acesso negado. Sua conta não tem um plano ativo ou é inválida." };
-		}
-	} catch (error) {
-		return { success: false, error: error.message || "Falha no login." };
-	}
-}
-
-function transformServerConfigToLocal(serverConfigs) {
-	const localConfig = { ...DEFAULT_CONFIG };
-
-	if (!serverConfigs) return localConfig;
-
-	if (serverConfigs.captureMode && serverConfigs.captureMode.type) {
-		localConfig.captureMode = serverConfigs.captureMode.type;
-	}
-
-	if (serverConfigs.exhibitionMode && serverConfigs.exhibitionMode.type) {
-		localConfig.displayMode = serverConfigs.exhibitionMode.type;
-		if (serverConfigs.exhibitionMode.extraData && serverConfigs.exhibitionMode.extraData.length > 0) {
-			localConfig.titleRevertDelay = serverConfigs.exhibitionMode.extraData[0];
-		}
-	}
-
-	if (typeof serverConfigs.temperature !== "undefined") {
-		localConfig.temperature = parseFloat(serverConfigs.temperature);
-	}
-	if (serverConfigs.historySize) {
-		localConfig.historySize = serverConfigs.historySize;
-	}
-
-	if (serverConfigs.selectedModel) {
-		localConfig.selectedModel = serverConfigs.selectedModel;
-	}
-
-	if (serverConfigs.appearance) {
-		localConfig.appearance = { ...localConfig.appearance, ...serverConfigs.appearance };
-	}
-
-	if (serverConfigs.shortcut) {
-		localConfig.shortcut = serverConfigs.shortcut;
-	}
-
-	return localConfig;
-}
-
-async function performLogout() {
-	try {
-		const { token } = await chrome.storage.local.get("token");
-		if (token) {
-			await api.logoutUser(token);
-		}
-	} catch (error) {
-		console.warn("Server logout failed, clearing local data anyway.", error.message);
-	} finally {
-		await chrome.storage.local.clear();
-		await chrome.alarms.clear("session-check");
-		showNotification("Sessão Encerrada", "Você foi desconectado com sucesso.");
-	}
-}
-
-async function checkSession() {
-	const { token } = await chrome.storage.local.get("token");
-	if (!token) {
-		await chrome.alarms.clear("session-check");
-		return;
-	}
-	try {
-		const freshUserData = await api.fetchUserData(token);
-		await chrome.storage.local.set({ user: freshUserData });
-	} catch (error) {
-		if (error.code === "TOKEN_EXPIRED" || error.message.includes("401") || error.message.includes("403")) {
-			console.log("Session expired or invalid. Logging out.");
-			await performLogout();
-		}
-	}
-}
-
-function blobToDataURL(blob) {
-	return new Promise((resolve, reject) => {
-		const reader = new FileReader();
-		reader.onload = () => resolve(reader.result);
-		reader.onerror = () => reject(reader.error);
-		reader.readAsDataURL(blob);
-	});
-}
-
-chrome.runtime.onInstalled.addListener(async (details) => {
 	if (details.reason === "install") {
-		await chrome.storage.sync.set({ config: DEFAULT_CONFIG });
-		chrome.runtime.openOptionsPage();
-	}
-});
-
-chrome.alarms.onAlarm.addListener((alarm) => {
-	if (alarm.name === "session-check") {
-		checkSession();
+		chrome.storage.local.clear();
 	}
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-	let isResponseAsync = true;
+	handleMessage(message, sender, sendResponse);
+	return true;
+});
 
-	switch (message.type) {
-		case "LOGIN":
-			performLogin(message.payload.userId, message.payload.password).then(sendResponse);
-			break;
+async function handleMessage(message, sender, sendResponse) {
+	try {
+		switch (message.action) {
+			case "captureScreen":
+				await handleCaptureScreen(message, sender, sendResponse);
+				break;
 
-		case "VERSION_CHECK":
-			api.versionCheck()
-				.then((data) => sendResponse({ success: true, ...data }))
-				.catch((error) => sendResponse({ success: false, error: error.message }));
-			break;
-
-		case "LOGOUT":
-			performLogout().then(sendResponse);
-			break;
-
-		case "GET_SESSION":
-			chrome.storage.local.get(["token", "user"]).then(sendResponse);
-			break;
-
-		case "IS_LOGGED_IN":
-			chrome.storage.local.get("token").then(({ token }) => {
-				sendResponse({ loggedIn: !!token });
-			});
-			break;
-
-		case "GET_FRESH_USER_DATA":
-			(async () => {
-				const { token } = await chrome.storage.local.get("token");
-				if (!token) {
-					sendResponse({ success: false, error: "Not authenticated" });
-					return;
-				}
+			case "captureVisibleTab":
 				try {
-					const freshUser = await api.fetchUserData(token);
-					await chrome.storage.local.set({ user: freshUser });
-					sendResponse({ success: true, user: freshUser });
-				} catch (error) {
-					sendResponse({ success: false, error: error.message });
-				}
-			})();
-			break;
-
-		case "SAVE_USER_SETTINGS":
-			(async () => {
-				try {
-					const { token } = await chrome.storage.local.get("token");
-					if (!token) {
-						return sendResponse({ success: false, error: "Usuário não autenticado." });
-					}
-
-					await api.saveUserSettings(token, message.payload.extensionConfigs);
-
-					const freshUser = await api.fetchUserData(token);
-
-					if (freshUser.extensionConfigs) {
-						const localConfig = transformServerConfigToLocal(freshUser.extensionConfigs);
-						await chrome.storage.sync.set({ config: localConfig });
-					}
-
-					await chrome.storage.local.set({ user: freshUser });
-
-					sendResponse({ success: true });
-				} catch (err) {
-					console.error("Failed to save user settings:", err);
-					sendResponse({ success: false, error: err.message });
-				}
-			})();
-			break;
-
-		case "CAPTURE_SCREEN":
-			(async () => {
-				try {
-					const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-					const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
-
-					const { token } = await chrome.storage.local.get("token");
-					if (!token) throw new Error("Usuário não autenticado.");
-
-					let imageBlob;
-					if (message.payload.mode === "fixo" || message.payload.mode === "selecao") {
-						imageBlob = await cropImage(dataUrl, message.payload.coords);
-					} else {
-						const res = await fetch(dataUrl);
-						imageBlob = await res.blob();
-					}
-
-					const [result, imageDataUrl] = await Promise.all([
-						api.generateAiResponse(token, imageBlob),
-						blobToDataURL(imageBlob),
-					]);
-
-					const freshUser = await api.fetchUserData(token);
-					await chrome.storage.local.set({ user: freshUser });
-
-					await chrome.tabs.sendMessage(tab.id, {
-						type: "DISPLAY_RESULT",
-						payload: {
-							text: result.text,
-							image: imageDataUrl,
-						},
+					const screenshot = await chrome.tabs.captureVisibleTab(null, {
+						format: "png",
+						quality: 100,
 					});
-					sendResponse({ success: true });
+					sendResponse({ success: true, screenshot });
 				} catch (error) {
-					console.error("Capture/Process Error:", error);
-					showNotification("Erro na IA", error.message);
-					const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-					if (tab) {
-						chrome.tabs
-							.sendMessage(tab.id, { type: "DISPLAY_RESULT", payload: { text: "", image: null } })
-							.catch(() => {});
-					}
+					console.error("Capture visible tab error:", error);
 					sendResponse({ success: false, error: error.message });
 				}
-			})();
-			break;
+				break;
 
-		default:
-			isResponseAsync = false;
-			break;
+			case "processImage":
+				await handleProcessImage(message, sendResponse);
+				break;
+
+			case "checkAuth":
+				const token = await getStorageItem("token");
+				sendResponse({ success: true, isAuthenticated: !!token });
+				break;
+
+			case "getCooldownStatus":
+				const cooldown = await getCooldownStatus();
+				sendResponse({ success: true, cooldown });
+				break;
+
+			default:
+				sendResponse({ success: false, error: "Ação desconhecida" });
+		}
+	} catch (error) {
+		console.error("Error in background:", error);
+		sendResponse({ success: false, error: error.message });
+	}
+}
+
+async function handleCaptureScreen(message, sender, sendResponse) {
+	try {
+		const settings = (await getStorageItem("settings")) || getDefaultSettings();
+		const captureMode = settings.screenCaptureMode || "padrão";
+
+		if (captureMode === "padrão") {
+			const screenshot = await chrome.tabs.captureVisibleTab(null, {
+				format: "png",
+				quality: 100,
+			});
+
+			sendResponse({
+				success: true,
+				screenshot,
+				mode: "padrão",
+			});
+		} else {
+			chrome.tabs.sendMessage(
+				sender.tab.id,
+				{
+					action: "captureFullPage",
+				},
+				(response) => {
+					sendResponse(response);
+				}
+			);
+		}
+	} catch (error) {
+		console.error("Capture error:", error);
+		sendResponse({ success: false, error: error.message });
+	}
+}
+
+async function handleProcessImage(message, sendResponse) {
+	try {
+		const { imageData, modelId } = message;
+		const token = await getStorageItem("token");
+		const settings = (await getStorageItem("settings")) || getDefaultSettings();
+
+		if (!token) {
+			throw new Error("Não autenticado");
+		}
+
+		const user = await getStorageItem("user");
+		const lastRequest = await getStorageItem("lastRequest");
+		const cooldownSeconds = user?.rateLimiter?.cooldownSeconds || 70;
+
+		if (lastRequest) {
+			const timeSince = (Date.now() - lastRequest) / 1000;
+			if (timeSince < cooldownSeconds) {
+				const waitTime = Math.ceil(cooldownSeconds - timeSince);
+				throw new Error(`Aguarde ${waitTime} segundos antes de fazer outra requisição`);
+			}
+		}
+
+		const base64Data = imageData.split(",")[1];
+		const byteCharacters = atob(base64Data);
+		const byteArrays = [];
+
+		for (let i = 0; i < byteCharacters.length; i++) {
+			byteArrays.push(byteCharacters.charCodeAt(i));
+		}
+
+		const blob = new Blob([new Uint8Array(byteArrays)], { type: "image/png" });
+
+		const formData = new FormData();
+		formData.append("questionImage", blob, "screenshot.png");
+		formData.append("modelId", modelId);
+
+		if (settings.temperature !== undefined) {
+			formData.append("temperature", settings.temperature);
+		}
+
+		const response = await fetch(`${API_BASE_URL}/ai/process-image`, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${token}`,
+			},
+			body: formData,
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error?.message || "Erro ao processar imagem");
+		}
+
+		const reader = response.body.getReader();
+		const decoder = new TextDecoder();
+		let result = "";
+
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			result += decoder.decode(value, { stream: true });
+		}
+
+		await setStorageItem("lastRequest", Date.now());
+
+		await addToHistory({
+			image: imageData,
+			response: result,
+			modelId,
+			timestamp: Date.now(),
+		});
+
+		sendResponse({ success: true, result });
+	} catch (error) {
+		console.error("Process image error:", error);
+		sendResponse({ success: false, error: error.message });
+	}
+}
+
+async function getCooldownStatus() {
+	const user = await getStorageItem("user");
+	const lastRequest = await getStorageItem("lastRequest");
+	const cooldownSeconds = user?.rateLimiter?.cooldownSeconds || 70;
+
+	if (!lastRequest) {
+		return { canRequest: true, waitTime: 0 };
 	}
 
-	return isResponseAsync;
-});
+	const timeSince = (Date.now() - lastRequest) / 1000;
+	const waitTime = Math.max(0, Math.ceil(cooldownSeconds - timeSince));
+
+	return {
+		canRequest: waitTime === 0,
+		waitTime,
+		cooldownSeconds,
+	};
+}
+
+async function getStorageItem(key) {
+	const result = await chrome.storage.local.get(key);
+	return result[key];
+}
+
+async function setStorageItem(key, value) {
+	return chrome.storage.local.set({ [key]: value });
+}
+
+async function addToHistory(item) {
+	const settings = (await getStorageItem("settings")) || getDefaultSettings();
+	const limit = settings.historyLimit || 100;
+
+	if (limit === 0) return;
+
+	const history = (await getStorageItem("history")) || [];
+	history.unshift(item);
+
+	const trimmed = history.slice(0, limit);
+	await setStorageItem("history", trimmed);
+}
+
+function getDefaultSettings() {
+	return {
+		selectedModel: "gemini-2.5-flash-lite",
+		temperature: 0.9,
+		screenCaptureMode: "padrão",
+		keybindSimple: "Alt+X",
+		keybindPro: null,
+		keybindProEnabled: false,
+		keybindModelSwitch: "Alt+M",
+		answerExhibitionMode: "pageTitle",
+		popupSize: 300,
+		popupOpacity: 0.95,
+		popupDuration: 10,
+		titleCooldownDisplay: true,
+		titleAnswerDuration: 15,
+		titleShowAnalyzing: true,
+		buttonPosition: "bottomRight",
+		buttonSize: 50,
+		buttonOpacity: 0.9,
+		buttonIcon: "fa-robot",
+		buttonSingleClick: true,
+		buttonDoubleClick: true,
+		buttonTooltip: true,
+		historyLimit: 100,
+	};
+}
