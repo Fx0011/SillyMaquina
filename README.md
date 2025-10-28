@@ -91,7 +91,7 @@ Guias estarão disponíveis em breve.
 **2. Persistência de Configurações**
 
 -   ✅ **Sincronização de Settings**
-    -   Troca de modelo/modo de captura agora atualiza 
+    -   Troca de modelo/modo de captura agora atualiza
     -   Settings recarregam automaticamente após salvar
     -   Tab de configurações recarrega para refletir mudanças
     -   Tanto objeto `settings` quanto `user.configurationSettings` mantidos em sincronia
@@ -286,7 +286,6 @@ Guias estarão disponíveis em breve.
 6. Faça login com suas credenciais
 
 ---
-
 
 ## 🐛 Reportar Bugs
 

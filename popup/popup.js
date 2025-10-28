@@ -73,15 +73,32 @@ async function checkVersionAndAuth() {
 
 		currentUser = user;
 
-		if (currentUser.configurationSettings) {
-			console.log("Loading user's saved configuration from user object");
-			const userSettings = mergeWithDefaults(currentUser.configurationSettings);
-			await chrome.storage.local.set({ settings: userSettings });
+		// Load user's saved settings from storage first, then merge with user config if it exists
+		console.log("Step 3: Loading user settings...");
+		const { settings: storedSettings } = await chrome.storage.local.get(["settings"]);
+
+		let finalSettings;
+		if (storedSettings && Object.keys(storedSettings).length > 0) {
+			// User has stored settings, use those and merge with any new user config
+			console.log("Loading settings from local storage");
+			finalSettings = mergeWithDefaults(storedSettings);
+
+			// If user has configurationSettings on the server, merge those too (server has priority)
+			if (currentUser.configurationSettings) {
+				console.log("Merging with user's server configuration");
+				finalSettings = { ...finalSettings, ...currentUser.configurationSettings };
+			}
+		} else if (currentUser.configurationSettings) {
+			// No stored settings, but user has config on server
+			console.log("Loading user's configuration from server");
+			finalSettings = mergeWithDefaults(currentUser.configurationSettings);
 		} else {
-			console.log("⚠️ No user configuration found, using defaults");
-			const defaultSettings = getDefaultSettings();
-			await chrome.storage.local.set({ settings: defaultSettings });
+			// No settings anywhere, use defaults
+			console.log("Using default settings");
+			finalSettings = getDefaultSettings();
 		}
+
+		await chrome.storage.local.set({ settings: finalSettings });
 
 		const planConfig = currentConfig.plans[user.plan.id];
 		if (!planConfig) {
