@@ -1,5 +1,5 @@
 const API_BASE_URL = "https://sillymaquina.vercel.app/api/v1";
-const EXTENSION_VERSION = "3.0.0";
+const EXTENSION_VERSION = "3.0.1";
 
 let currentUser = null;
 let currentConfig = null;
@@ -7,11 +7,38 @@ let currentTab = "dashboard";
 let cachedMetrics = null;
 let metricsLastFetched = null;
 const METRICS_CACHE_TTL = 5 * 60 * 1000;
+let maintenanceStatus = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
 	showLoadingScreen();
-	await checkVersionAndAuth();
+	await checkMaintenanceAndAuth();
 });
+
+async function checkMaintenanceAndAuth() {
+	try {
+		// Check maintenance status first
+		console.log("Step 0: Checking maintenance status...");
+		const maintenanceResponse = await fetch(`${API_BASE_URL}/public/maintenance-status`);
+
+		if (maintenanceResponse.ok) {
+			maintenanceStatus = await maintenanceResponse.json();
+			console.log("✅ Maintenance status loaded:", maintenanceStatus);
+
+			// If under maintenance, show maintenance screen
+			if (maintenanceStatus.isUnderMaintenance) {
+				showMaintenanceScreen(maintenanceStatus.active);
+				return;
+			}
+		}
+
+		// Continue with normal flow
+		await checkVersionAndAuth();
+	} catch (error) {
+		console.error("Failed to check maintenance status:", error);
+		// Continue anyway if maintenance check fails
+		await checkVersionAndAuth();
+	}
+}
 
 async function checkVersionAndAuth() {
 	try {
@@ -25,9 +52,9 @@ async function checkVersionAndAuth() {
 		const config = await configResponse.json();
 		currentConfig = config;
 
-		console.log("✅ Config loaded");
-		console.log("📦 Plans available:", Object.keys(config.plans));
-		console.log("📦 Models available:", Object.keys(config.models));
+		console.log("Config loaded");
+		console.log("Plans available:", Object.keys(config.plans));
+		console.log("Models available:", Object.keys(config.models));
 
 		await chrome.storage.local.set({ config });
 
@@ -35,19 +62,19 @@ async function checkVersionAndAuth() {
 		const { token, user } = await chrome.storage.local.get(["token", "user"]);
 
 		if (!token || !user) {
-			console.log("❌ Not authenticated");
+			console.log("Not authenticated");
 			showLoginScreen();
 			return;
 		}
 
-		console.log("✅ User authenticated");
-		console.log("👤 Username:", user.username);
-		console.log("📋 Plan ID:", user.plan.id);
+		console.log("User authenticated");
+		console.log("Username:", user.username);
+		console.log("Plan ID:", user.plan.id);
 
 		currentUser = user;
 
 		if (currentUser.configurationSettings) {
-			console.log("✅ Loading user's saved configuration from user object");
+			console.log("Loading user's saved configuration from user object");
 			const userSettings = mergeWithDefaults(currentUser.configurationSettings);
 			await chrome.storage.local.set({ settings: userSettings });
 		} else {
@@ -58,15 +85,15 @@ async function checkVersionAndAuth() {
 
 		const planConfig = currentConfig.plans[user.plan.id];
 		if (!planConfig) {
-			console.error("❌ Plan not found in config:", user.plan.id);
+			console.error("Plan not found in config:", user.plan.id);
 			console.log("Available plans:", Object.keys(currentConfig.plans));
 			alert(`Plano '${user.plan.id}' não encontrado na configuração. Contate o suporte.`);
 			showLoginScreen();
 			return;
 		}
 
-		console.log("✅ Plan config found");
-		console.log("📋 Plan name:", planConfig.name);
+		console.log("Plan config found");
+		console.log("Plan name:", planConfig.name);
 
 		let extensionConfig = config.extensionInfo || config.extension;
 
@@ -92,17 +119,17 @@ async function checkVersionAndAuth() {
 				console.log("🧪 Adding test badge");
 				showTestBuildBadge();
 			} else {
-				console.log("✅ Version is current - no badge needed");
+				console.log("Version is current - no badge needed");
 			}
 		}
 
-		console.log("✅ Showing main screen");
+		console.log("Showing main screen");
 		console.log("=== POPUP INIT COMPLETE ===\n");
 
 		updateUserDisplay();
 		showMainScreen();
 	} catch (error) {
-		console.error("❌ INIT ERROR:", error);
+		console.error("INIT ERROR:", error);
 		console.error(error.stack);
 		showLoginScreen();
 	}
@@ -209,6 +236,27 @@ document.getElementById("logoutBtn")?.addEventListener("click", async () => {
 	window.location.reload();
 });
 
+document.getElementById("refreshMaintenanceBtn")?.addEventListener("click", async () => {
+	window.location.reload();
+});
+
+document.getElementById("bannerDetailsBtn")?.addEventListener("click", () => {
+	if (maintenanceStatus && maintenanceStatus.upcoming) {
+		showMaintenanceModal(maintenanceStatus.upcoming);
+	}
+});
+
+document.getElementById("closeMaintenanceModal")?.addEventListener("click", () => {
+	document.getElementById("maintenanceModal").classList.add("hidden");
+});
+
+// Close modal when clicking outside
+document.getElementById("maintenanceModal")?.addEventListener("click", (e) => {
+	if (e.target.id === "maintenanceModal") {
+		document.getElementById("maintenanceModal").classList.add("hidden");
+	}
+});
+
 function updateUserDisplay() {
 	if (!currentUser || !currentConfig) return;
 
@@ -246,17 +294,141 @@ function showLoadingScreen() {
 	document.getElementById("mainScreen").classList.add("hidden");
 }
 
-function showLoginScreen() {
-	document.getElementById("loadingScreen").classList.add("hidden");
-	document.getElementById("loginScreen").classList.remove("hidden");
-	document.getElementById("mainScreen").classList.add("hidden");
-}
-
 function showMainScreen() {
 	document.getElementById("loadingScreen").classList.add("hidden");
 	document.getElementById("loginScreen").classList.add("hidden");
 	document.getElementById("mainScreen").classList.remove("hidden");
+	document.getElementById("maintenanceScreen").classList.add("hidden");
+
+	// Show maintenance banner if there's upcoming maintenance
+	if (maintenanceStatus && maintenanceStatus.upcoming) {
+		showMaintenanceBanner(maintenanceStatus.upcoming);
+	} else {
+		hideMaintenanceBanner();
+	}
+
 	loadTab("dashboard");
+}
+
+function showMaintenanceScreen(maintenanceData) {
+	document.getElementById("loadingScreen").classList.add("hidden");
+	document.getElementById("loginScreen").classList.add("hidden");
+	document.getElementById("mainScreen").classList.add("hidden");
+	document.getElementById("maintenanceScreen").classList.remove("hidden");
+
+	const { title, message, startTime, endTime, affectedServices } = maintenanceData;
+
+	document.getElementById("maintenanceMessage").innerHTML = `<strong>${title}</strong><p>${message}</p>`;
+	document.getElementById("maintenanceStart").textContent = formatDateTime(startTime);
+	document.getElementById("maintenanceEnd").textContent = formatDateTime(endTime);
+
+	// Calculate and display remaining time
+	updateMaintenanceTimeRemaining(endTime);
+
+	// Show affected services if any
+	if (affectedServices && affectedServices.length > 0) {
+		const servicesContainer = document.getElementById("maintenanceServices");
+		servicesContainer.innerHTML = `
+			<div class="services-title"><i class="fas fa-server"></i> Serviços Afetados:</div>
+			<ul class="services-list">
+				${affectedServices.map((service) => `<li>${service}</li>`).join("")}
+			</ul>
+		`;
+		servicesContainer.style.display = "block";
+	}
+}
+
+function showMaintenanceBanner(upcomingData) {
+	const banner = document.getElementById("maintenanceBanner");
+	const info = document.getElementById("bannerMaintenanceInfo");
+
+	const startTime = new Date(upcomingData.startTime);
+	const timeUntil = formatTimeUntil(upcomingData.timeUntilStart);
+
+	info.innerHTML = `${upcomingData.title} - <span class="time-highlight">começa em ${timeUntil}</span>`;
+	banner.classList.remove("hidden");
+}
+
+function hideMaintenanceBanner() {
+	document.getElementById("maintenanceBanner").classList.add("hidden");
+}
+
+function showMaintenanceModal(maintenanceData) {
+	const modal = document.getElementById("maintenanceModal");
+	const { title, message, startTime, endTime, timeUntilStart, affectedServices } = maintenanceData;
+
+	document.getElementById("modalMaintenanceTitle").textContent = title;
+	document.getElementById("modalMaintenanceMessage").textContent = message;
+	document.getElementById("modalMaintenanceStart").textContent = formatDateTime(startTime);
+	document.getElementById("modalMaintenanceEnd").textContent = formatDateTime(endTime);
+
+	if (timeUntilStart) {
+		document.getElementById("modalMaintenanceTimeUntil").textContent = formatTimeUntil(timeUntilStart);
+	}
+
+	// Show affected services if any
+	if (affectedServices && affectedServices.length > 0) {
+		const servicesContainer = document.getElementById("modalMaintenanceServices");
+		servicesContainer.innerHTML = `
+			<div class="services-title"><i class="fas fa-server"></i> Serviços Afetados:</div>
+			<ul class="services-list">
+				${affectedServices.map((service) => `<li>${service}</li>`).join("")}
+			</ul>
+		`;
+		servicesContainer.style.display = "block";
+	}
+
+	modal.classList.remove("hidden");
+}
+
+function updateMaintenanceTimeRemaining(endTime) {
+	const updateTime = () => {
+		const now = Date.now();
+		const end = new Date(endTime).getTime();
+		const remaining = end - now;
+
+		if (remaining <= 0) {
+			document.getElementById("maintenanceRemaining").textContent = "Finalizando...";
+			return;
+		}
+
+		document.getElementById("maintenanceRemaining").textContent = formatTimeUntil(remaining);
+	};
+
+	updateTime();
+	setInterval(updateTime, 60000); // Update every minute
+}
+
+function formatDateTime(dateString) {
+	const date = new Date(dateString);
+	return date.toLocaleString("pt-BR", {
+		day: "2-digit",
+		month: "2-digit",
+		year: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+	});
+}
+
+function formatTimeUntil(milliseconds) {
+	const hours = Math.floor(milliseconds / (1000 * 60 * 60));
+	const minutes = Math.floor((milliseconds % (1000 * 60 * 60)) / (1000 * 60));
+
+	if (hours > 24) {
+		const days = Math.floor(hours / 24);
+		return `${days} dia${days > 1 ? "s" : ""}`;
+	} else if (hours > 0) {
+		return `${hours}h ${minutes}min`;
+	} else {
+		return `${minutes} minuto${minutes !== 1 ? "s" : ""}`;
+	}
+}
+
+function showLoginScreen() {
+	document.getElementById("loadingScreen").classList.add("hidden");
+	document.getElementById("loginScreen").classList.remove("hidden");
+	document.getElementById("mainScreen").classList.add("hidden");
+	document.getElementById("maintenanceScreen").classList.add("hidden");
 }
 
 document.querySelectorAll(".nav-tab").forEach((tab) => {
@@ -314,6 +486,11 @@ async function loadDashboard(container, forceRefresh = false) {
 		});
 
 		if (!response.ok) {
+			if (response.status === 401) {
+				await chrome.storage.local.clear();
+				window.location.reload();
+				return;
+			}
 			throw new Error("Erro ao carregar métricas");
 		}
 
@@ -617,19 +794,19 @@ async function loadSettings(container) {
 
 		if (!modelsAllowed) {
 			throw new Error(
-				`❌ BACKEND ERROR: 'modelsAllowed' field is missing from plan config. The backend is not sending this field!`
+				`BACKEND ERROR: 'modelsAllowed' field is missing from plan config. The backend is not sending this field!`
 			);
 		}
 
 		if (!Array.isArray(modelsAllowed)) {
-			throw new Error(`❌ BACKEND ERROR: 'modelsAllowed' is not an array. Got: ${typeof modelsAllowed}`);
+			throw new Error(`BACKEND ERROR: 'modelsAllowed' is not an array. Got: ${typeof modelsAllowed}`);
 		}
 
 		if (modelsAllowed.length === 0) {
-			throw new Error(`❌ CONFIG ERROR: 'modelsAllowed' array is empty for plan '${userPlanId}'`);
+			throw new Error(`CONFIG ERROR: 'modelsAllowed' array is empty for plan '${userPlanId}'`);
 		}
 
-		console.log("✅ Models allowed for this plan:", modelsAllowed);
+		console.log("Models allowed for this plan:", modelsAllowed);
 
 		const modelOptions = modelsAllowed
 			.map((modelId) => {
@@ -778,6 +955,28 @@ async function loadSettings(container) {
 				}
 			  <small id="keybindModelSwitchError" class="plan-restriction" style="display:none;"></small>
 			</div>
+
+			<div class="setting-item" ${!checkPlanAccess(userPlanId, ["pro", "admin"]) ? 'style="opacity:0.5"' : ""}>
+			  <label>Atalho para Trocar Modo de Captura</label>
+			  <div class="keybind-recorder">
+				<input type="text" id="keybindCaptureModeSwitch" value="${
+					settings.keybindCaptureModeSwitch || ""
+				}" class="setting-input keybind-input" ${
+			!checkPlanAccess(userPlanId, ["pro", "admin"]) ? "disabled" : "readonly"
+		} placeholder="Clique e pressione as teclas">
+				<button type="button" class="btn btn-sm keybind-clear" data-target="keybindCaptureModeSwitch" ${
+					!checkPlanAccess(userPlanId, ["pro", "admin"]) ? "disabled" : ""
+				}>
+				  <i class="fas fa-times"></i>
+				</button>
+			  </div>
+			  ${
+					!checkPlanAccess(userPlanId, ["pro", "admin"])
+						? '<small class="plan-restriction">Disponível apenas para plano Pro</small>'
+						: "<small>Deve usar apenas Alt + uma tecla (ex: Alt+C)</small>"
+				}
+			  <small id="keybindCaptureModeError" class="plan-restriction" style="display:none;"></small>
+			</div>
 		  </div>
 		  
 		  <div class="settings-section">
@@ -925,7 +1124,7 @@ async function loadSettings(container) {
 
 		setupSettingsHandlers(container);
 	} catch (error) {
-		console.error("❌ SETTINGS LOAD ERROR:", error);
+		console.error("SETTINGS LOAD ERROR:", error);
 		console.error(error.stack);
 
 		container.innerHTML = `
@@ -1001,6 +1200,7 @@ function setupKeybindRecorders(container) {
 
 			const isProMode = this.id === "keybindPro";
 			const isSimpleMode = this.id === "keybindSimple" || this.id === "keybindModelSwitch";
+			const isCaptureModeSwitch = this.id === "keybindCaptureModeSwitch";
 
 			const mouseHandler = (e) => {
 				if (isProMode && e.button === 1) {
@@ -1027,7 +1227,39 @@ function setupKeybindRecorders(container) {
 				if (key === " ") key = "Space";
 				if (key.length === 1) key = key.toUpperCase();
 
-				if (isSimpleMode) {
+				if (isCaptureModeSwitch) {
+					if (modifiers.length !== 1 || modifiers[0] !== "Alt") {
+						if (errorEl) {
+							errorEl.textContent = "Use apenas Alt + uma tecla (ex: Alt+C)";
+							errorEl.style.display = "block";
+						}
+						this.value = "";
+						this.classList.remove("recording");
+						cleanup();
+						return;
+					}
+
+					if (key === "Control" || key === "Alt" || key === "Shift") {
+						if (errorEl) {
+							errorEl.textContent = "Adicione uma tecla além do Alt";
+							errorEl.style.display = "block";
+						}
+						return;
+					}
+
+					if (!/^[A-Za-z0-9]$/.test(key)) {
+						if (errorEl) {
+							errorEl.textContent = "Use apenas letras (A-Z) ou números (0-9)";
+							errorEl.style.display = "block";
+						}
+						this.value = "";
+						this.classList.remove("recording");
+						cleanup();
+						return;
+					}
+
+					keybind = `Alt+${key}`;
+				} else if (isSimpleMode) {
 					if (modifiers.length === 0) {
 						if (errorEl) {
 							errorEl.textContent = "Deve conter Alt, Ctrl ou Ctrl+Alt + uma tecla";
@@ -1160,6 +1392,9 @@ async function saveSettings(container) {
 			keybindModelSwitch: checkPlanAccess(userPlan, ["basic", "pro", "admin"])
 				? container.querySelector("#keybindModelSwitch").value || null
 				: null,
+			keybindCaptureModeSwitch: checkPlanAccess(userPlan, ["pro", "admin"])
+				? container.querySelector("#keybindCaptureModeSwitch").value || null
+				: null,
 			answerExhibitionMode: container.querySelector("#answerExhibitionMode").value,
 			popupSize: parseInt(container.querySelector("#popupSize").value),
 			popupOpacity: parseFloat(container.querySelector("#popupOpacity").value),
@@ -1198,6 +1433,13 @@ async function saveSettings(container) {
 			}
 		}
 
+		if (newSettings.keybindCaptureModeSwitch) {
+			const captureModePattern = /^Alt\+[A-Za-z0-9]$/;
+			if (!captureModePattern.test(newSettings.keybindCaptureModeSwitch)) {
+				throw new Error("Keybind de modo de captura inválido. Use apenas Alt+X (ex: Alt+C)");
+			}
+		}
+
 		if (newSettings.buttonIcon) {
 			const iconPattern = /^fa-[a-z0-9-]+$/;
 			if (!iconPattern.test(newSettings.buttonIcon)) {
@@ -1216,6 +1458,11 @@ async function saveSettings(container) {
 		});
 
 		if (!response.ok) {
+			if (response.status === 401) {
+				await chrome.storage.local.clear();
+				window.location.reload();
+				return;
+			}
 			const error = await response.json();
 			throw new Error(error.error?.message || "Erro ao salvar configurações");
 		}
@@ -1225,9 +1472,15 @@ async function saveSettings(container) {
 		currentUser.configurationSettings = newSettings;
 		await chrome.storage.local.set({ user: currentUser });
 
-		console.log("✅ Settings saved to user object and storage");
+		console.log("Settings saved to user object and storage");
 
 		showToast("Configurações salvas com sucesso!", "success");
+
+		// Reload the settings tab to show updated values
+		const settingsTab = document.getElementById("settingsTab");
+		if (settingsTab && settingsTab.classList.contains("active")) {
+			await loadSettings(settingsTab);
+		}
 
 		chrome.tabs.query({}, (tabs) => {
 			tabs.forEach((tab) => {
@@ -1421,7 +1674,8 @@ function getDefaultSettings() {
 		keybindSimple: "Alt+X",
 		keybindPro: null,
 		keybindProEnabled: false,
-		keybindModelSwitch: "Alt+M",
+		keybindModelSwitch: null,
+		keybindCaptureModeSwitch: null,
 		answerExhibitionMode: "pageTitle",
 		popupSize: 300,
 		popupOpacity: 0.95,

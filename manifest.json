@@ -1,7 +1,7 @@
 {
 	"manifest_version": 3,
 	"name": "SillyMaquina",
-	"version": "3.0.0",
+	"version": "3.0.1",
 	"description": "Extensão para processamento de imagens com IA",
 	"permissions": ["storage", "activeTab", "scripting", "notifications", "tabs"],
 	"host_permissions": ["<all_urls>"],

@@ -65,7 +65,49 @@ function injectFontAwesome() {
 
 		chrome.runtime.onMessage.addListener(handleMessage);
 	}
+
+	removeFooterOnTargetSite();
 })();
+
+function removeFooterOnTargetSite() {
+	if (window.location.href.startsWith("https://exams-sesi-avaliacao-2022.didatti.net.br/")) {
+		const removeFooter = () => {
+			try {
+				const footer = document.querySelector(".footer");
+				if (footer) {
+					footer.remove();
+					console.log("Footer removed successfully");
+				}
+			} catch (error) {
+				console.error("Error removing footer:", error);
+			}
+		};
+
+		removeFooter();
+
+		const observer = new MutationObserver(() => {
+			const footer = document.querySelector(".footer");
+			if (footer) {
+				removeFooter();
+			}
+		});
+
+		if (document.body) {
+			observer.observe(document.body, {
+				childList: true,
+				subtree: true,
+			});
+		} else {
+			document.addEventListener("DOMContentLoaded", () => {
+				removeFooter();
+				observer.observe(document.body, {
+					childList: true,
+					subtree: true,
+				});
+			});
+		}
+	}
+}
 
 async function loadData() {
 	const data = await chrome.storage.local.get(["settings", "user", "config"]);
@@ -125,6 +167,13 @@ function handleMessage(message, sender, sendResponse) {
 				}
 				setupKeybinds();
 			});
+			break;
+		case "forceLogout":
+			if (currentButton) {
+				currentButton.remove();
+				currentButton = null;
+			}
+			displayError("Sessão expirada. Recarregue a página e faça login novamente.");
 			break;
 	}
 }
@@ -337,7 +386,7 @@ function restoreOriginalTitle() {
 		titleTimeout = null;
 	}
 
-	if (originalTitle) {
+	if (originalTitle && document.title !== originalTitle) {
 		document.title = originalTitle;
 		titleState = "normal";
 	}
@@ -457,6 +506,11 @@ function setupKeybinds() {
 				lastModelSwitchTime = now;
 			}
 		}
+
+		if (settings.keybindCaptureModeSwitch && checkKeybind(e, settings.keybindCaptureModeSwitch)) {
+			e.preventDefault();
+			switchCaptureMode();
+		}
 	};
 
 	document.addEventListener("keydown", window._keybindHandler);
@@ -496,6 +550,17 @@ async function captureAndProcess() {
 	if (!checkExtensionContext()) {
 		displayError("Extension foi atualizada. Por favor, recarregue a página.");
 		return;
+	}
+
+	try {
+		const maintenanceResponse = await safeSendMessage({ action: "checkMaintenance" });
+		if (maintenanceResponse && maintenanceResponse.isUnderMaintenance) {
+			const message = maintenanceResponse.active?.title || "Sistema em manutenção";
+			displayError(`${message}. Tente novamente mais tarde.`);
+			return;
+		}
+	} catch (error) {
+		console.error("Failed to check maintenance status:", error);
 	}
 
 	try {
@@ -735,20 +800,28 @@ function setPageTitle(text, duration = null, state = "normal") {
 						if (!canRequest && waitTime > 0 && settings.titleCooldownDisplay) {
 							showCooldownInTitle(waitTime);
 						} else {
-							document.title = originalTitle;
+							if (originalTitle && document.title !== originalTitle) {
+								document.title = originalTitle;
+							}
 							titleState = "normal";
 						}
 					} else {
-						document.title = originalTitle;
+						if (originalTitle && document.title !== originalTitle) {
+							document.title = originalTitle;
+						}
 						titleState = "normal";
 					}
 				} catch (error) {
 					console.error("Failed to get cooldown status:", error);
-					document.title = originalTitle;
+					if (originalTitle && document.title !== originalTitle) {
+						document.title = originalTitle;
+					}
 					titleState = "normal";
 				}
 			} else {
-				document.title = originalTitle;
+				if (originalTitle && document.title !== originalTitle) {
+					document.title = originalTitle;
+				}
 				titleState = "normal";
 			}
 		}, duration * 1000);
@@ -757,9 +830,9 @@ function setPageTitle(text, duration = null, state = "normal") {
 
 function displayError(error) {
 	if (settings.answerExhibitionMode === "smallPopup") {
-		showPopupAnswer(`❌ Erro: ${error}`);
+		showPopupAnswer(`Erro: ${error}`);
 	} else {
-		setPageTitle(`❌ Erro: ${error}`, 5, "error");
+		setPageTitle(`Erro: ${error}`, 5, "error");
 	}
 }
 
@@ -819,6 +892,11 @@ async function switchModel() {
 		settings.selectedModel = nextModel;
 		await chrome.storage.local.set({ settings });
 
+		if (user.configurationSettings) {
+			user.configurationSettings.selectedModel = nextModel;
+			await chrome.storage.local.set({ user });
+		}
+
 		try {
 			const token = await chrome.storage.local.get("token");
 			const response = await fetch("https://sillymaquina.vercel.app/api/v1/users/me/configuration", {
@@ -831,6 +909,15 @@ async function switchModel() {
 			});
 
 			if (!response.ok) {
+				if (response.status === 401) {
+					await chrome.storage.local.clear();
+					displayError("Sessão expirada. Recarregue a página e faça login novamente.");
+					if (currentButton) {
+						currentButton.remove();
+						currentButton = null;
+					}
+					return;
+				}
 				throw new Error("Failed to update model on server");
 			}
 		} catch (error) {
@@ -867,6 +954,78 @@ function showModelSwitchNotification(modelName) {
 	);
 }
 
+async function switchCaptureMode() {
+	try {
+		// Check if user is pro
+		if (!user || (user.plan.id !== "pro" && user.plan.id !== "admin")) {
+			displayError("Trocar modo de captura está disponível apenas para usuários Pro");
+			return;
+		}
+
+		// Toggle capture mode
+		const newMode = settings.screenCaptureMode === "padrão" ? "total" : "padrão";
+
+		settings.screenCaptureMode = newMode;
+		await chrome.storage.local.set({ settings });
+
+		// Update user object
+		if (user.configurationSettings) {
+			user.configurationSettings.screenCaptureMode = newMode;
+			await chrome.storage.local.set({ user });
+		}
+
+		try {
+			const token = await chrome.storage.local.get("token");
+			const response = await fetch("https://sillymaquina.vercel.app/api/v1/users/me/configuration", {
+				method: "PATCH",
+				headers: {
+					Authorization: `Bearer ${token.token}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ screenCaptureMode: newMode }),
+			});
+
+			if (!response.ok) {
+				if (response.status === 401) {
+					await chrome.storage.local.clear();
+					displayError("Sessão expirada. Recarregue a página e faça login novamente.");
+					if (currentButton) {
+						currentButton.remove();
+						currentButton = null;
+					}
+					return;
+				}
+				throw new Error("Failed to update capture mode on server");
+			}
+		} catch (error) {
+			console.error("Failed to update capture mode on server:", error);
+		}
+
+		showCaptureModeNotification(newMode);
+	} catch (error) {
+		console.error("Capture mode switch error:", error);
+		displayError("Erro ao trocar modo de captura");
+	}
+}
+
+function showCaptureModeNotification(modeName) {
+	if (document.querySelector(".sillymaquina-capture-mode")) return;
+
+	const notification = document.createElement("div");
+	notification.className = "sillymaquina-capture-mode";
+	notification.innerHTML = `<i class="fas fa-camera"></i> Modo: ${modeName === "total" ? "Total" : "Padrão"}`;
+	document.body.appendChild(notification);
+
+	setTimeout(
+		() => {
+			if (notification.parentNode) {
+				notification.remove();
+			}
+		},
+		settings.answerExhibitionMode === "pageTitle" ? 500 : 2000
+	);
+}
+
 function formatNumber(num) {
 	return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
@@ -879,7 +1038,8 @@ function getDefaultSettings() {
 		keybindSimple: "Alt+X",
 		keybindPro: null,
 		keybindProEnabled: false,
-		keybindModelSwitch: "Alt+M",
+		keybindModelSwitch: null,
+		keybindCaptureModeSwitch: null,
 		answerExhibitionMode: "pageTitle",
 		popupSize: 300,
 		popupOpacity: 0.95,

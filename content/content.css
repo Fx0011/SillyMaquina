@@ -224,6 +224,21 @@
 	animation: slideUp 0.3s ease-out;
 }
 
+.sillymaquina-capture-mode {
+	position: fixed;
+	bottom: 20px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: rgba(102, 126, 234, 0.95);
+	color: white;
+	padding: 12px 24px;
+	border-radius: 24px;
+	font-size: 14px;
+	font-weight: 500;
+	z-index: 1000001;
+	animation: slideUp 0.3s ease-out;
+}
+
 .sillymaquina-capture-overlay {
 	position: fixed;
 	top: 0;

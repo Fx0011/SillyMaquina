@@ -47,6 +47,10 @@ async function handleMessage(message, sender, sendResponse) {
 				sendResponse({ success: true, cooldown });
 				break;
 
+			case "checkMaintenance":
+				await handleCheckMaintenance(sendResponse);
+				break;
+
 			default:
 				sendResponse({ success: false, error: "Ação desconhecida" });
 		}
@@ -138,6 +142,18 @@ async function handleProcessImage(message, sendResponse) {
 		});
 
 		if (!response.ok) {
+			if (response.status === 401) {
+				await chrome.storage.local.clear();
+
+				chrome.tabs.query({}, (tabs) => {
+					tabs.forEach((tab) => {
+						chrome.tabs.sendMessage(tab.id, { action: "forceLogout" }).catch(() => {});
+					});
+				});
+
+				throw new Error("Sessão expirada. Faça login novamente.");
+			}
+
 			const error = await response.json();
 			throw new Error(error.error?.message || "Erro ao processar imagem");
 		}
@@ -150,6 +166,13 @@ async function handleProcessImage(message, sendResponse) {
 			const { done, value } = await reader.read();
 			if (done) break;
 			result += decoder.decode(value, { stream: true });
+		}
+
+		const validPattern = /^Resposta:\s*.+/i;
+		const isInvalidResponse = /^Inválida\/Insolúvel$/i.test(result.trim());
+
+		if (!validPattern.test(result.trim()) && !isInvalidResponse) {
+			result = "Inválida/Insolúvel";
 		}
 
 		await setStorageItem("lastRequest", Date.now());
@@ -234,4 +257,25 @@ function getDefaultSettings() {
 		buttonTooltip: true,
 		historyLimit: 100,
 	};
+}
+
+async function handleCheckMaintenance(sendResponse) {
+	try {
+		const response = await fetch(`${API_BASE_URL}/public/maintenance-status`);
+		
+		if (!response.ok) {
+			sendResponse({ isUnderMaintenance: false });
+			return;
+		}
+
+		const data = await response.json();
+		sendResponse({
+			isUnderMaintenance: data.isUnderMaintenance,
+			active: data.active,
+			upcoming: data.upcoming
+		});
+	} catch (error) {
+		console.error("Failed to check maintenance status:", error);
+		sendResponse({ isUnderMaintenance: false });
+	}
 }
