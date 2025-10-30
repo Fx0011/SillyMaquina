@@ -11,6 +11,102 @@ Guias estarão disponíveis em breve.
 
 ## 📝 Patch Notes
 
+### Versão 3.0.2 - Correções Críticas e Melhorias de Estabilidade
+
+#### 🐛 Correções de Bugs Críticos
+
+**1. Título Preso em SPAs React**
+
+-   ✅ **Novo Sistema de Detecção SPA**
+    -   Implementado `setupSPANavigationListener()` que detecta mudanças de URL
+    -   Suporta `pushState`, `replaceState` e `popstate`
+    -   Força restauração do título quando página muda em SPAs
+    -   Captura novo título original automaticamente após navegação
+    -   Limpa todos os timers e estados ao trocar de página
+    -   Resolvido problema onde título ficava preso em sites React com navegação por visualização
+
+**2. Storage Quota Exceeded - Histórico**
+
+-   ✅ **Limite de Histórico Forçado para 15 Itens**
+    -   Limite máximo: 15 itens (previne `QuotaExceededError`)
+    -   Validação em `addToHistory()` no background.js com fallback automático
+    -   Se quota exceder, reduz para 10 itens automaticamente
+    -   Força limite durante carregamento de configurações
+    -   Input HTML limitado a `max="15"` com aviso explicativo
+    -   Defaults atualizados: `historyLimit: 15` em background.js, popup.js e content.js
+    -   Try-catch robusto para prevenir quebra completa do script
+
+**3. Configurações Não Carregam na Primeira Vez**
+
+-   ✅ **Lógica Melhorada de Carregamento**
+    -   Prioriza storage local → servidor → defaults
+    -   Verificação com `Object.keys().length` para confirmar existência
+    -   Logs detalhados no console para debug
+    -   Mescla correta de configurações do servidor com locais
+    -   Settings sempre salvos no storage após merge
+-   ✅ **Backend: Novo Método `updateUserConfiguration()`**
+    -   Valida todas as configurações baseado no plano
+    -   **Mescla automaticamente** com configurações existentes
+    -   Preserva settings não alteradas durante atualização parcial
+    -   Envia apenas a setting mudada (frontend) → backend mescla com o resto
+    -   Trata denied settings com erro 403 informativo
+    -   Logs de auditoria para mudanças de configuração
+
+#### 🔧 Melhorias Técnicas
+
+**1. Backend - UserService**
+
+-   Nova função `updateUserConfiguration(user, newSettings)`
+    -   Integra com `ExtensionSettingsService` para validação
+    -   Merge inteligente: `{ ...existing, ...newSettings }`
+    -   Retorna user completo com todas as settings salvas
+    -   Logs estruturados de operações
+    -   Tratamento de permissões por plano
+
+**2. Frontend - Validação de Histórico**
+
+-   Popup.js: `Math.min(value, 15)` ao salvar settings
+-   Background.js: Redução automática para 10 em caso de quota
+-   Content.js: Validação ao adicionar itens
+-   Mensagens de aviso no console
+
+**3. Frontend - Carregamento de Settings**
+
+-   Logs detalhados mostram:
+    -   Qual fonte foi usada (local storage vs servidor vs defaults)
+    -   Merge operations com dados completos
+    -   Força limite de histórico se necessário
+-   Workflow: storage → merge com servidor → salva
+
+#### 🔄 Fluxo de Sincronização
+
+**Ao trocar modelo/captura via keybind:**
+
+1. Frontend envia `{ selectedModel: "novo-modelo" }` (apenas campo alterado)
+2. Backend recebe e valida a configuração
+3. Backend faz merge com settings existentes
+4. Todas as configurações são salvas (não apenas a alterada)
+5. Frontend usa o que foi retornado pelo servidor
+
+**Ao fazer login:**
+
+1. Sistema verifica storage local primeiro
+2. Se vazio, carrega do servidor
+3. Mescla ambas as fontes (servidor tem prioridade)
+4. Força `historyLimit: 15` se necessário
+5. Salva tudo no storage local
+
+#### 📊 Melhorias de Robustez
+
+-   ✅ Storage quota handling com fallback automático
+-   ✅ SPAs (React, Vue) agora detectadas e tratadas corretamente
+-   ✅ Configurações nunca mais perdem dados durante merge
+-   ✅ Logs detalhados para debug de carregamento
+-   ✅ Validação forçada de limites de histórico
+-   ✅ Tratamento gracioso de erros de rede
+
+---
+
 ### Versão 3.0.1 - Atualização Completa do Sistema
 
 #### 🎯 Novas Funcionalidades
