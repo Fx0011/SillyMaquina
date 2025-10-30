@@ -220,16 +220,39 @@ async function setStorageItem(key, value) {
 }
 
 async function addToHistory(item) {
-	const settings = (await getStorageItem("settings")) || getDefaultSettings();
-	const limit = settings.historyLimit || 100;
+	try {
+		const settings = (await getStorageItem("settings")) || getDefaultSettings();
+		// FORÇA limite máximo de 15 para prevenir quota exceeded
+		const limit = Math.min(settings.historyLimit || 15, 15);
 
-	if (limit === 0) return;
+		if (limit === 0) return;
 
-	const history = (await getStorageItem("history")) || [];
-	history.unshift(item);
+		const history = (await getStorageItem("history")) || [];
+		history.unshift(item);
 
-	const trimmed = history.slice(0, limit);
-	await setStorageItem("history", trimmed);
+		const trimmed = history.slice(0, limit);
+		
+		// Tenta salvar, se falhar por quota, reduz ainda mais
+		try {
+			await setStorageItem("history", trimmed);
+		} catch (error) {
+			if (error.message && error.message.includes("QUOTA")) {
+				console.warn("Storage quota exceeded, reducing history to 10 items");
+				const reduced = trimmed.slice(0, 10);
+				await setStorageItem("history", reduced);
+			} else {
+				throw error;
+			}
+		}
+	} catch (error) {
+		console.error("Error adding to history:", error);
+		// Em caso de erro crítico, limpa histórico
+		try {
+			await setStorageItem("history", []);
+		} catch (e) {
+			console.error("Failed to clear history:", e);
+		}
+	}
 }
 
 function getDefaultSettings() {
@@ -241,6 +264,7 @@ function getDefaultSettings() {
 		keybindPro: null,
 		keybindProEnabled: false,
 		keybindModelSwitch: "Alt+M",
+		keybindCaptureModeSwitch: null,
 		answerExhibitionMode: "pageTitle",
 		popupSize: 300,
 		popupOpacity: 0.95,
@@ -255,7 +279,7 @@ function getDefaultSettings() {
 		buttonSingleClick: true,
 		buttonDoubleClick: true,
 		buttonTooltip: true,
-		historyLimit: 100,
+		historyLimit: 15, // Máximo 15 para prevenir quota exceeded
 	};
 }
 

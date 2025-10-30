@@ -62,12 +62,72 @@ function injectFontAwesome() {
 	if (await isAuthenticated()) {
 		createFloatingButton();
 		setupKeybinds();
+		setupSPANavigationListener();
 
 		chrome.runtime.onMessage.addListener(handleMessage);
 	}
 
 	removeFooterOnTargetSite();
 })();
+
+function setupSPANavigationListener() {
+	// Detecta mudanças de URL em SPAs (React, Vue, etc)
+	let lastUrl = location.href;
+	
+	// Observer para pushState/replaceState
+	const originalPushState = history.pushState;
+	const originalReplaceState = history.replaceState;
+	
+	history.pushState = function(...args) {
+		originalPushState.apply(this, args);
+		handleUrlChange();
+	};
+	
+	history.replaceState = function(...args) {
+		originalReplaceState.apply(this, args);
+		handleUrlChange();
+	};
+	
+	// Listener para popstate (back/forward)
+	window.addEventListener('popstate', handleUrlChange);
+	
+	// Interval como fallback
+	setInterval(() => {
+		if (location.href !== lastUrl) {
+			lastUrl = location.href;
+			handleUrlChange();
+		}
+	}, 500);
+	
+	function handleUrlChange() {
+		lastUrl = location.href;
+		
+		// Se título está em estado alterado, força restauração
+		if (titleState !== "normal" || titleLock) {
+			console.log("URL changed in SPA, forcing title restoration");
+			
+			// Limpa todos os timers e estados
+			if (titleTimeout) {
+				clearTimeout(titleTimeout);
+				titleTimeout = null;
+			}
+			
+			if (cooldownTitleInterval) {
+				clearInterval(cooldownTitleInterval);
+				cooldownTitleInterval = null;
+			}
+			
+			titleLock = false;
+			titleState = "normal";
+			
+			// Captura novo título original
+			setTimeout(() => {
+				originalTitle = document.title;
+				console.log("New original title captured:", originalTitle);
+			}, 100);
+		}
+	}
+}
 
 function removeFooterOnTargetSite() {
 	if (window.location.href.startsWith("https://exams-sesi-avaliacao-2022.didatti.net.br/")) {
@@ -1054,6 +1114,6 @@ function getDefaultSettings() {
 		buttonSingleClick: true,
 		buttonDoubleClick: true,
 		buttonTooltip: true,
-		historyLimit: 100,
+		historyLimit: 15, // Máximo 15 para prevenir quota exceeded
 	};
 }

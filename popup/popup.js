@@ -1,5 +1,5 @@
 const API_BASE_URL = "https://sillymaquina.vercel.app/api/v1";
-const EXTENSION_VERSION = "3.0.1";
+const EXTENSION_VERSION = "3.0.2";
 
 let currentUser = null;
 let currentConfig = null;
@@ -75,30 +75,45 @@ async function checkVersionAndAuth() {
 
 		// Load user's saved settings from storage first, then merge with user config if it exists
 		console.log("Step 3: Loading user settings...");
+		console.log("User object from storage:", user);
+		console.log("User.configurationSettings:", user.configurationSettings);
+
 		const { settings: storedSettings } = await chrome.storage.local.get(["settings"]);
+		console.log("Stored settings from chrome.storage:", storedSettings);
 
 		let finalSettings;
 		if (storedSettings && Object.keys(storedSettings).length > 0) {
 			// User has stored settings, use those and merge with any new user config
-			console.log("Loading settings from local storage");
+			console.log("✅ Loading settings from local storage");
 			finalSettings = mergeWithDefaults(storedSettings);
 
 			// If user has configurationSettings on the server, merge those too (server has priority)
-			if (currentUser.configurationSettings) {
-				console.log("Merging with user's server configuration");
+			if (currentUser.configurationSettings && Object.keys(currentUser.configurationSettings).length > 0) {
+				console.log("✅ Merging with user's server configuration");
+				console.log("Server config to merge:", currentUser.configurationSettings);
 				finalSettings = { ...finalSettings, ...currentUser.configurationSettings };
 			}
-		} else if (currentUser.configurationSettings) {
+		} else if (currentUser.configurationSettings && Object.keys(currentUser.configurationSettings).length > 0) {
 			// No stored settings, but user has config on server
-			console.log("Loading user's configuration from server");
+			console.log("✅ Loading user's configuration from server (first time)");
+			console.log("Server configuration:", currentUser.configurationSettings);
 			finalSettings = mergeWithDefaults(currentUser.configurationSettings);
 		} else {
 			// No settings anywhere, use defaults
-			console.log("Using default settings");
+			console.log("⚠️ No settings found anywhere, using defaults");
 			finalSettings = getDefaultSettings();
 		}
 
+		console.log("Final settings to be saved:", finalSettings);
+
+		// FORÇA limite de histórico para máximo 15 para prevenir quota exceeded
+		if (finalSettings.historyLimit > 15) {
+			console.warn(`History limit (${finalSettings.historyLimit}) exceeds maximum, forcing to 15`);
+			finalSettings.historyLimit = 15;
+		}
+
 		await chrome.storage.local.set({ settings: finalSettings });
+		console.log("✅ Settings saved to chrome.storage");
 
 		const planConfig = currentConfig.plans[user.plan.id];
 		if (!planConfig) {
@@ -1123,8 +1138,8 @@ async function loadSettings(container) {
 			
 			<div class="setting-item">
 			  <label>Limite de Itens</label>
-			  <input type="number" id="historyLimit" min="0" max="100" value="${settings.historyLimit}" class="setting-input">
-			  <small>0 = desabilitar histórico</small>
+			  <input type="number" id="historyLimit" min="0" max="15" value="${settings.historyLimit}" class="setting-input">
+			  <small>0 = desabilitar histórico (máximo 15 para prevenir erros de storage)</small>
 			</div>
 		  </div>
 		  
@@ -1426,8 +1441,14 @@ async function saveSettings(container) {
 			buttonSingleClick: container.querySelector("#buttonSingleClick").checked,
 			buttonDoubleClick: container.querySelector("#buttonDoubleClick").checked,
 			buttonTooltip: container.querySelector("#buttonTooltip").checked,
-			historyLimit: parseInt(container.querySelector("#historyLimit").value),
+			historyLimit: Math.min(parseInt(container.querySelector("#historyLimit").value), 15), // FORÇA máximo 15
 		};
+
+		// Avisa se o limite de histórico foi ajustado
+		const requestedLimit = parseInt(container.querySelector("#historyLimit").value);
+		if (requestedLimit > 15) {
+			console.warn(`History limit adjusted from ${requestedLimit} to 15 to prevent storage quota exceeded`);
+		}
 
 		const availableModels = planConfig.modelsAllowed || [];
 
@@ -1707,7 +1728,7 @@ function getDefaultSettings() {
 		buttonSingleClick: true,
 		buttonDoubleClick: true,
 		buttonTooltip: true,
-		historyLimit: 100,
+		historyLimit: 15, // Máximo 15 para prevenir quota exceeded
 	};
 }
 
