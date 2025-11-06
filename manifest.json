@@ -1,7 +1,7 @@
 {
 	"manifest_version": 3,
 	"name": "SillyMaquina",
-	"version": "3.0.2",
+	"version": "3.0.3",
 	"description": "Extensão para processamento de imagens com IA",
 	"permissions": ["storage", "activeTab", "scripting", "notifications", "tabs"],
 	"host_permissions": ["<all_urls>"],
@@ -20,14 +20,14 @@
 	"content_scripts": [
 		{
 			"matches": ["<all_urls>"],
-			"js": ["content/content.js"],
-			"css": ["content/content.css"],
+			"js": ["lib/html2canvas.min.js", "content/content.js"],
+			"css": ["lib/fontawesome-free-6.5.1-web/css/all.min.css", "content/content.css"],
 			"run_at": "document_end"
 		}
 	],
 	"web_accessible_resources": [
 		{
-			"resources": ["content/*", "icons/*"],
+			"resources": ["content/*", "icons/*", "lib/*"],
 			"matches": ["<all_urls>"]
 		}
 	],
