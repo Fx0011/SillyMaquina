@@ -1,5 +1,5 @@
 const API_BASE_URL = "https://sillymaquina.vercel.app/api/v1";
-const EXTENSION_VERSION = "3.0.3";
+const EXTENSION_VERSION = "3.0.4";
 
 let currentUser = null;
 let currentConfig = null;
