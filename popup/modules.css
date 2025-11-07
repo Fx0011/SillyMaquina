@@ -283,6 +283,15 @@
 	font-weight: 500;
 }
 
+.setting-item small.warning-text {
+	color: #d97706;
+	font-weight: 500;
+}
+
+.setting-item small.warning-text i {
+	margin-right: 4px;
+}
+
 .setting-select,
 .setting-input {
 	width: 100%;

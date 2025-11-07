@@ -1,5 +1,5 @@
 const API_BASE_URL = "https://sillymaquina.vercel.app/api/v1";
-const EXTENSION_VERSION = "3.0.4";
+const EXTENSION_VERSION = "3.0.5";
 
 let currentUser = null;
 let currentConfig = null;
@@ -840,6 +840,20 @@ async function loadSettings(container) {
 						: "<small>Padrão captura área visível, Total captura página completa</small>"
 				}
 			</div>
+
+			<div class="setting-item" ${!checkPlanAccess(userPlanId, ["pro", "admin"]) ? 'style="opacity:0.5"' : ""}>
+			  <label>
+				<input type="checkbox" id="legacyCapture" ${settings.legacyCapture ? "checked" : ""} ${
+			!checkPlanAccess(userPlanId, ["pro", "admin"]) ? "disabled" : ""
+		}>
+				Usar Modo de Captura Legado (Atalho: ";")
+			  </label>
+			  ${
+					!checkPlanAccess(userPlanId, ["pro", "admin"])
+						? '<small class="plan-restriction">Modo de captura legado disponível apenas para planos Pro e Admin</small>'
+						: '<small class="warning-text"><i class="fas fa-exclamation-triangle"></i> Aviso: O modo de captura padrão (html2canvas) não captura imagens. Use o modo legado se precisar capturar imagens, mas pode ser mais lento.</small>'
+				}
+			</div>
 		  </div>
 		  
 		  <div class="settings-section">
@@ -1372,6 +1386,9 @@ async function saveSettings(container) {
 			selectedModel: container.querySelector("#selectedModel").value,
 			temperature: parseFloat(container.querySelector("#temperature").value),
 			screenCaptureMode: container.querySelector("#screenCaptureMode").value,
+			legacyCapture: checkPlanAccess(userPlan, ["pro", "admin"])
+				? container.querySelector("#legacyCapture").checked
+				: false,
 			keybindSimple: container.querySelector("#keybindSimple").value,
 			keybindPro: container.querySelector("#keybindPro").value || null,
 			keybindProEnabled: container.querySelector('input[name="keybindMode"]:checked').value === "pro",
@@ -1438,6 +1455,10 @@ async function saveSettings(container) {
 			}
 		}
 
+		// Create settings object for API (without legacyCapture)
+		const apiSettings = { ...newSettings };
+		delete apiSettings.legacyCapture; // Don't send to API
+
 		const token = await getStorageItem("token");
 		const response = await fetch(`${API_BASE_URL}/users/me/configuration`, {
 			method: "PATCH",
@@ -1445,7 +1466,7 @@ async function saveSettings(container) {
 				Authorization: `Bearer ${token}`,
 				"Content-Type": "application/json",
 			},
-			body: JSON.stringify(newSettings),
+			body: JSON.stringify(apiSettings),
 		});
 
 		if (!response.ok) {
@@ -1661,6 +1682,7 @@ function getDefaultSettings() {
 		selectedModel: "gemini-2.5-flash-lite",
 		temperature: 0.9,
 		screenCaptureMode: "padrão",
+		legacyCapture: false,
 		keybindSimple: "Alt+X",
 		keybindPro: null,
 		keybindProEnabled: false,

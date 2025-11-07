@@ -49,7 +49,10 @@ function injectFontAwesome() {
 
 	const link = document.createElement("link");
 	link.rel = "stylesheet";
-	link.href = chrome.runtime.getURL("lib/fontawesome-free-6.5.1-web/css/all.min.css");
+	link.href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css";
+	link.integrity = "sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==";
+	link.crossOrigin = "anonymous";
+	link.referrerPolicy = "no-referrer";
 	document.head.appendChild(link);
 }
 
@@ -706,6 +709,14 @@ function setupKeybinds() {
 			e.preventDefault();
 			switchCaptureMode();
 		}
+
+		if (e.key === ";" && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+			const userPlan = user?.plan?.id;
+			if (userPlan === "pro" || userPlan === "admin") {
+				e.preventDefault();
+				toggleLegacyCapture();
+			}
+		}
 	};
 
 	window._mouseClickHandler = (e) => {
@@ -921,26 +932,28 @@ async function captureAndProcess() {
 async function captureFullPage() {
 	return new Promise(async (resolve) => {
 		try {
-			//const hiddenElements = hidePageHeaders();
+			// Check if legacy capture mode is enabled
+			if (settings.legacyCapture) {
+				await captureLegacyFullPage(resolve);
+			} else {
+				// Modern html2canvas capture (doesn't capture images)
+				const fullPageCanvas = await html2canvas(document.documentElement, {
+					allowTaint: true,
+					useCORS: true,
+					backgroundColor: "#ffffff",
+					scale: 1,
+					logging: false,
+					imageTimeout: 5000,
+				});
 
-			const fullPageCanvas = await html2canvas(document.documentElement, {
-				allowTaint: true,
-				useCORS: true,
-				backgroundColor: "#ffffff",
-				scale: 1,
-				logging: false,
-				imageTimeout: 5000,
-			});
+				const stitchedScreenshot = fullPageCanvas.toDataURL("image/png");
 
-			//restorePageHeaders(hiddenElements);
-
-			const stitchedScreenshot = fullPageCanvas.toDataURL("image/png");
-
-			resolve({
-				success: true,
-				screenshot: stitchedScreenshot,
-				mode: "total",
-			});
+				resolve({
+					success: true,
+					screenshot: stitchedScreenshot,
+					mode: "total",
+				});
+			}
 		} catch (error) {
 			console.error("Full page capture error:", error);
 			resolve({
@@ -951,9 +964,116 @@ async function captureFullPage() {
 	});
 }
 
+async function captureLegacyFullPage(resolve) {
+	try {
+		const originalScrollPosition = window.scrollY;
+
+		// First, scroll to top
+		window.scrollTo(0, 0);
+		await new Promise((r) => setTimeout(r, 300));
+
+		// Remove headers from DOM completely
+		const hiddenElements = hidePageHeaders();
+
+		// Force a layout recalculation after removing headers
+		await new Promise((r) => setTimeout(r, 500));
+
+		// Get the actual content height (body scroll height)
+		const bodyHeight = document.body.scrollHeight;
+		const viewportHeight = window.innerHeight;
+		const viewportWidth = window.innerWidth;
+
+		console.log(`Legacy capture: Body height = ${bodyHeight}px, viewport = ${viewportHeight}px`);
+
+		// Calculate how many screenshots we need with NO gaps
+		const numScreenshots = Math.ceil(bodyHeight / viewportHeight);
+		const screenshots = [];
+
+		// Capture each viewport-sized section
+		for (let i = 0; i < numScreenshots; i++) {
+			const scrollY = i * viewportHeight;
+
+			// Make sure we don't scroll past the content
+			const actualScrollY = Math.min(scrollY, bodyHeight - viewportHeight);
+			window.scrollTo(0, actualScrollY);
+
+			// Wait for scroll and any lazy-loaded content
+			await new Promise((r) => setTimeout(r, 500));
+
+			// Capture visible tab via background script
+			const response = await safeSendMessage({ action: "captureVisibleTab" });
+
+			if (response.success) {
+				screenshots.push(response.screenshot);
+				console.log(`Captured screenshot ${i + 1}/${numScreenshots} at scroll ${actualScrollY}px`);
+			}
+		}
+
+		// Restore scroll position
+		window.scrollTo(0, originalScrollPosition);
+
+		// Restore headers AFTER all captures
+		restorePageHeaders(hiddenElements);
+
+		// Create canvas to stitch screenshots
+		const canvas = document.createElement("canvas");
+		canvas.width = viewportWidth;
+
+		// Canvas height = number of full screenshots * viewport height
+		// BUT the last screenshot might overlap, so we calculate actual height
+		const totalHeight = (numScreenshots - 1) * viewportHeight + viewportHeight;
+		canvas.height = Math.min(totalHeight, bodyHeight);
+
+		const ctx = canvas.getContext("2d");
+
+		// Draw screenshots sequentially without gaps
+		for (let i = 0; i < screenshots.length; i++) {
+			const img = new Image();
+			await new Promise((imgResolve, imgReject) => {
+				img.onload = imgResolve;
+				img.onerror = imgReject;
+				img.src = screenshots[i];
+			});
+
+			// Each screenshot goes directly below the previous one
+			const yPos = i * viewportHeight;
+
+			// If this is the last screenshot and it would go past body height, clip it
+			if (yPos + viewportHeight > bodyHeight) {
+				const heightToDraw = bodyHeight - yPos;
+				ctx.drawImage(img, 0, 0, viewportWidth, heightToDraw, 0, yPos, viewportWidth, heightToDraw);
+				console.log(`Stitched LAST screenshot ${i + 1} at Y=${yPos}px (clipped to ${heightToDraw}px)`);
+			} else {
+				ctx.drawImage(img, 0, yPos);
+				console.log(`Stitched screenshot ${i + 1} at Y=${yPos}px`);
+			}
+		}
+
+		const stitchedScreenshot = canvas.toDataURL("image/png");
+
+		resolve({
+			success: true,
+			screenshot: stitchedScreenshot,
+			mode: "total-legacy",
+		});
+	} catch (error) {
+		console.error("Legacy full page capture error:", error);
+
+		// Restore scroll position on error
+		window.scrollTo(0, originalScrollPosition);
+		restorePageHeaders([]);
+
+		resolve({
+			success: false,
+			error: error.message,
+		});
+	}
+}
+
 function hidePageHeaders() {
 	const hiddenElements = [];
 
+	// Standard header selectors
 	const headerSelectors = [
 		"header",
 		".header",
@@ -967,53 +1087,66 @@ function hidePageHeaders() {
 		"[role='navigation']",
 	];
 
-	const allElements = document.querySelectorAll("*");
-
 	for (const selector of headerSelectors) {
 		const elements = document.querySelectorAll(selector);
 		elements.forEach((el) => {
 			const rect = el.getBoundingClientRect();
 			const style = window.getComputedStyle(el);
+			const elHeight = el.offsetHeight;
 
+			// Check if it's a fixed/sticky header element or positioned at top
 			if (
 				(style.position === "fixed" || style.position === "sticky") &&
-				rect.top < 200 &&
-				el.offsetHeight > 0 &&
-				(style.display !== "none" || style.visibility !== "hidden")
+				rect.top <= 200 &&
+				elHeight > 0 &&
+				el.offsetWidth > 0 &&
+				style.display !== "none"
 			) {
+				const parent = el.parentNode;
+				const nextSibling = el.nextSibling;
+
 				hiddenElements.push({
 					element: el,
-					display: el.style.display,
-					visibility: el.style.visibility,
+					parent: parent,
+					nextSibling: nextSibling,
 				});
-				el.style.display = "none";
-				console.log(`Hiding header element: ${el.tagName}.${el.className}`);
+
+				// Remove from DOM completely
+				parent.removeChild(el);
+				console.log(
+					`Removed header element from DOM: ${el.tagName}#${el.id}.${el.className} (height: ${elHeight}px)`
+				);
 			}
 		});
 	}
 
-	allElements.forEach((el) => {
-		const classStr = el.className.toString().toLowerCase();
-		const idStr = el.id.toString().toLowerCase();
+	// Additional check for elements that should be removed even if not in selectors
+	const allHeaderLikeElements = document.querySelectorAll("[id*='cabecalho'], [id*='menu'], [id*='navegacao']");
+	allHeaderLikeElements.forEach((el) => {
+		const style = window.getComputedStyle(el);
+		const rect = el.getBoundingClientRect();
 
-		if ((classStr.includes("header") || idStr.includes("header")) && el.offsetHeight > 0) {
-			const rect = el.getBoundingClientRect();
+		if (
+			style.display !== "none" &&
+			el.offsetHeight > 0 &&
+			(style.position === "fixed" || style.position === "sticky" || rect.top < 200)
+		) {
+			// Check if not already removed
+			const alreadyRemoved = hiddenElements.some((item) => item.element === el);
+			if (!alreadyRemoved && el.parentNode) {
+				const parent = el.parentNode;
+				const nextSibling = el.nextSibling;
 
-			if (rect.top < 300) {
-				const style = window.getComputedStyle(el);
+				hiddenElements.push({
+					element: el,
+					parent: parent,
+					nextSibling: nextSibling,
+				});
 
-				if (
-					(style.position === "fixed" || style.position === "sticky") &&
-					(style.display !== "none" || style.visibility !== "hidden")
-				) {
-					hiddenElements.push({
-						element: el,
-						display: el.style.display,
-						visibility: el.style.visibility,
-					});
-					el.style.display = "none";
-					console.log(`Hiding header element: ${el.tagName}#${el.id}.${el.className}`);
-				}
+				parent.removeChild(el);
+				console.log(
+					`Removed additional header element from DOM: ${el.tagName}#${el.id} (height: ${el.offsetHeight}px)`
+				);
 			}
 		}
 	});
@@ -1022,10 +1155,15 @@ function hidePageHeaders() {
 }
 
 function restorePageHeaders(hiddenElements) {
-	hiddenElements.forEach(({ element, display, visibility }) => {
-		element.style.display = display;
-		element.style.visibility = visibility;
-		console.log(`Restored header element: ${element.tagName}`);
+	hiddenElements.forEach(({ element, parent, nextSibling }) => {
+		if (parent) {
+			if (nextSibling) {
+				parent.insertBefore(element, nextSibling);
+			} else {
+				parent.appendChild(element);
+			}
+			console.log(`Restored header element to DOM: ${element.tagName}#${element.id}`);
+		}
 	});
 }
 
@@ -1374,6 +1512,43 @@ function showCaptureModeNotification(modeName) {
 	);
 }
 
+async function toggleLegacyCapture() {
+	try {
+		if (!user || (user.plan.id !== "pro" && user.plan.id !== "admin")) {
+			displayError("Modo de captura legado está disponível apenas para usuários Pro e Admin");
+			return;
+		}
+
+		const newLegacyMode = !settings.legacyCapture;
+
+		settings.legacyCapture = newLegacyMode;
+		await chrome.storage.local.set({ settings });
+
+		showLegacyCaptureNotification(newLegacyMode);
+	} catch (error) {
+		console.error("Legacy capture toggle error:", error);
+		displayError("Erro ao alternar modo de captura legado");
+	}
+}
+
+function showLegacyCaptureNotification(isEnabled) {
+	if (document.querySelector(".sillymaquina-legacy-capture")) return;
+
+	const notification = document.createElement("div");
+	notification.className = "sillymaquina-legacy-capture";
+	notification.innerHTML = `<i class="fas fa-image"></i> Captura Legada: ${isEnabled ? "Ativada" : "Desativada"}`;
+	document.body.appendChild(notification);
+
+	setTimeout(
+		() => {
+			if (notification.parentNode) {
+				notification.remove();
+			}
+		},
+		settings.answerExhibitionMode === "pageTitle" ? 500 : 2000
+	);
+}
+
 function formatNumber(num) {
 	return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
@@ -1383,6 +1558,7 @@ function getDefaultSettings() {
 		selectedModel: "gemini-2.5-flash-lite",
 		temperature: 0.9,
 		screenCaptureMode: "padrão",
+		legacyCapture: false,
 		keybindSimple: "Alt+X",
 		keybindPro: null,
 		keybindProEnabled: false,

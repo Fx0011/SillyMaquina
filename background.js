@@ -166,6 +166,16 @@ async function handleProcessImage(message, sendResponse) {
 				throw new Error("Sessão expirada. Faça login novamente.");
 			}
 
+			if (response.status === 503) {
+				const error = await response.json();
+				
+				if (error.error?.code === "SERVICE_UNAVAILABLE") {
+					throw new Error("O serviço de IA está temporariamente indisponível. Por favor, aguarde 1 minuto e tente novamente.");
+				}
+				
+				throw new Error(error.error?.message || "O serviço de IA está temporariamente indisponível. Por favor, aguarde 1 minuto e tente novamente.");
+			}
+
 			const error = await response.json();
 			throw new Error(error.error?.message || "Erro ao processar imagem");
 		}
@@ -269,6 +279,7 @@ function getDefaultSettings() {
 		selectedModel: "gemini-2.5-flash-lite",
 		temperature: 0.9,
 		screenCaptureMode: "padrão",
+		legacyCapture: false,
 		keybindSimple: "Alt+X",
 		keybindPro: null,
 		keybindProEnabled: false,
