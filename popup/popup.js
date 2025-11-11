@@ -1,5 +1,5 @@
 const API_BASE_URL = "https://sillymaquina.vercel.app/api/v1";
-const EXTENSION_VERSION = "3.0.5";
+const EXTENSION_VERSION = "3.0.6";
 
 let currentUser = null;
 let currentConfig = null;
@@ -854,6 +854,15 @@ async function loadSettings(container) {
 						: '<small class="warning-text"><i class="fas fa-exclamation-triangle"></i> Aviso: O modo de captura padrão (html2canvas) não captura imagens. Use o modo legado se precisar capturar imagens, mas pode ser mais lento.</small>'
 				}
 			</div>
+
+			<div class="setting-item">
+			  <label>
+				<input type="checkbox" id="formsLockedModeBypass" ${settings.formsLockedModeBypass ? "checked" : ""}>
+				Desbloquear Google Forms em Modo Bloqueado
+			  </label>
+			  <small><i class="fas fa-info-circle"></i> Permite acessar Google Forms em modo bloqueado sem restrições. Funciona em Chromebooks gerenciados com extensões habilitadas.</small>
+			  <small class="warning-text"><i class="fas fa-exclamation-triangle"></i> Use apenas para fins educacionais. Requer recarregar a página do formulário após ativar.</small>
+			</div>
 		  </div>
 		  
 		  <div class="settings-section">
@@ -1389,6 +1398,7 @@ async function saveSettings(container) {
 			legacyCapture: checkPlanAccess(userPlan, ["pro", "admin"])
 				? container.querySelector("#legacyCapture").checked
 				: false,
+			formsLockedModeBypass: container.querySelector("#formsLockedModeBypass").checked,
 			keybindSimple: container.querySelector("#keybindSimple").value,
 			keybindPro: container.querySelector("#keybindPro").value || null,
 			keybindProEnabled: container.querySelector('input[name="keybindMode"]:checked').value === "pro",
@@ -1455,9 +1465,10 @@ async function saveSettings(container) {
 			}
 		}
 
-		// Create settings object for API (without legacyCapture)
+		// Create settings object for API (without legacyCapture and formsLockedModeBypass)
 		const apiSettings = { ...newSettings };
 		delete apiSettings.legacyCapture; // Don't send to API
+		delete apiSettings.formsLockedModeBypass; // Don't send to API
 
 		const token = await getStorageItem("token");
 		const response = await fetch(`${API_BASE_URL}/users/me/configuration`, {
@@ -1683,6 +1694,7 @@ function getDefaultSettings() {
 		temperature: 0.9,
 		screenCaptureMode: "padrão",
 		legacyCapture: false,
+		formsLockedModeBypass: false,
 		keybindSimple: "Alt+X",
 		keybindPro: null,
 		keybindProEnabled: false,

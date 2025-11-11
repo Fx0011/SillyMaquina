@@ -280,6 +280,7 @@ function getDefaultSettings() {
 		temperature: 0.9,
 		screenCaptureMode: "padrão",
 		legacyCapture: false,
+		formsLockedModeBypass: false,
 		keybindSimple: "Alt+X",
 		keybindPro: null,
 		keybindProEnabled: false,
