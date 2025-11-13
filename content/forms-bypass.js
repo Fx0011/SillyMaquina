@@ -14,8 +14,8 @@
 
 	// CRITICAL: We need to inject the actual bypass code into the PAGE CONTEXT
 	// Content scripts run in an isolated environment and cannot intercept page JS
-	const script = document.createElement("script");
-	script.textContent = `
+	// Using blob URL to bypass CSP restrictions
+	const scriptCode = `
 (function() {
 	console.log("Google Forms Unlocker initialized in page context");
 
@@ -302,9 +302,22 @@
 })();
 `;
 
+	// Create a blob URL to bypass CSP
+	const blob = new Blob([scriptCode], { type: "text/javascript" });
+	const url = URL.createObjectURL(blob);
+
+	const script = document.createElement("script");
+	script.src = url;
+	script.onload = function () {
+		URL.revokeObjectURL(url);
+		script.remove();
+		console.log("Google Forms Unlocker - Successfully injected into page");
+	};
+	script.onerror = function () {
+		URL.revokeObjectURL(url);
+		console.error("Google Forms Unlocker - Failed to inject script");
+	};
+
 	// Inject the script into the page
 	(document.head || document.documentElement).appendChild(script);
-	script.remove(); // Clean up the script tag after injection
-
-	console.log("Google Forms Unlocker - Successfully injected into page");
 })();
