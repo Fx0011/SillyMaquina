@@ -26,6 +26,12 @@
 		},
 		{
 			"matches": ["*://docs.google.com/forms/*"],
+			"js": ["content/forms-bypass-settings.js"],
+			"run_at": "document_start",
+			"all_frames": true
+		},
+		{
+			"matches": ["*://docs.google.com/forms/*"],
 			"js": ["content/forms-bypass.js"],
 			"run_at": "document_start",
 			"world": "MAIN",
