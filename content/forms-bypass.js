@@ -4,26 +4,27 @@
 
 console.log("🤖 SillyMaquina - Bypass script (MAIN world) carregado");
 
-// Wait for settings to be injected by ISOLATED world script
+// Wait for sessionStorage to be set by ISOLATED world script
 function checkAndInitialize() {
-	if (window.SILLY_MAQUINA_SETTINGS) {
-		console.log("🤖 SillyMaquina - Settings encontradas:", window.SILLY_MAQUINA_SETTINGS);
-		const bypassEnabled = window.SILLY_MAQUINA_SETTINGS.formsLockedModeBypass === true;
+	const bypassEnabled = sessionStorage.getItem("SILLY_MAQUINA_BYPASS_ENABLED");
 
-		if (bypassEnabled) {
+	if (bypassEnabled !== null) {
+		console.log("🤖 SillyMaquina - Settings encontradas. formsLockedModeBypass:", bypassEnabled);
+
+		if (bypassEnabled === "true") {
 			console.log("🤖 SillyMaquina - Google Forms Bypass ativo");
 			initializeBypass();
 		} else {
-			console.log("🤖 SillyMaquina - Google Forms Bypass desativado (configure nas opções)");
+			console.log("🤖 SillyMaquina - Google Forms Bypass desativado (ative nas configurações da extensão)");
 		}
 	} else {
 		// Settings not ready yet, wait a bit
-		setTimeout(checkAndInitialize, 50);
+		console.log("🤖 SillyMaquina - Aguardando settings...");
+		setTimeout(checkAndInitialize, 100);
 	}
 }
 
 checkAndInitialize();
-
 function initializeBypass() {
 	const kAssessmentAssistantExtensionId = "gndmhdcefbhlchkhipcnnbkcmicncehk";
 	const ERROR_USER_AGENT = "_useragenterror";

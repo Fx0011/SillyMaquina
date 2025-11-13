@@ -1,22 +1,19 @@
 // This script runs in ISOLATED world and can access chrome.storage
-// It injects settings into the page's localStorage for MAIN world to access
+// It shares settings with MAIN world via sessionStorage
 
 (async () => {
 	try {
-		const settings = await chrome.storage.local.get(null);
-		console.log("🤖 SillyMaquina - Settings carregadas:", settings);
+		const result = await chrome.storage.local.get("formsLockedModeBypass");
+		const enabled = result.formsLockedModeBypass === true;
 
-		// Inject into page's localStorage
-		const script = document.createElement("script");
-		script.textContent = `
-			window.SILLY_MAQUINA_SETTINGS = ${JSON.stringify(settings)};
-			console.log("🤖 SillyMaquina - Settings injetadas no MAIN world:", window.SILLY_MAQUINA_SETTINGS);
-		`;
-		(document.head || document.documentElement).appendChild(script);
-		script.remove();
+		console.log("🤖 SillyMaquina - formsLockedModeBypass:", enabled);
 
-		console.log("🤖 SillyMaquina - Settings injetadas com sucesso");
+		// Store in sessionStorage (accessible from MAIN world)
+		sessionStorage.setItem("SILLY_MAQUINA_BYPASS_ENABLED", enabled);
+
+		console.log("🤖 SillyMaquina - Setting salva em sessionStorage");
 	} catch (error) {
 		console.error("🤖 SillyMaquina - Erro ao carregar settings:", error);
+		sessionStorage.setItem("SILLY_MAQUINA_BYPASS_ENABLED", "false");
 	}
 })();
