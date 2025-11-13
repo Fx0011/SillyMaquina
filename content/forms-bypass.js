@@ -1,13 +1,15 @@
 // Google Forms Locked Mode Bypass
 // Based on https://github.com/xNasuni/google-forms-unlocker
 // Runs in MAIN world via manifest.json "world": "MAIN"
-// Settings provided by forms-bypass-init.js (isolated world)
 
 console.log("Google Forms Unlocker - Running in MAIN world");
 
-// Check if bypass is enabled (set by forms-bypass-init.js)
-if (!window.__gfuSettings || !window.__gfuSettings.enabled) {
-	console.log("Google Forms bypass is disabled in settings");
+// Check if bypass is enabled via data attribute set by forms-bypass-init.js
+const bypassEnabled = document.documentElement.getAttribute("data-gfu-enabled") === "true";
+console.log("Google Forms Unlocker - Bypass enabled:", bypassEnabled);
+
+if (!bypassEnabled) {
+	console.log("Google Forms bypass is disabled in settings - exiting");
 	throw new Error("Google Forms bypass disabled");
 }
 
