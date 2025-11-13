@@ -14,7 +14,7 @@
 
 	// CRITICAL: We need to inject the actual bypass code into the PAGE CONTEXT
 	// Content scripts run in an isolated environment and cannot intercept page JS
-	const script = document.createElement('script');
+	const script = document.createElement("script");
 	script.textContent = `
 (function() {
 	console.log("Google Forms Unlocker initialized in page context");
@@ -38,22 +38,7 @@
 
 	// Add custom styles
 	const style = document.createElement("style");
-	style.textContent = `
-		.gfu-red {
-			font-family: monospace;
-			text-align: center;
-			font-size: 11px;
-			padding-top: 24px;
-			color: red !important;
-		}
-		.EbMsme {
-			transition: filter cubic-bezier(0.4, 0, 0.2, 1) 0.3s;
-			filter: blur(8px) !important;
-		}
-		.EbMsme:hover {
-			filter: blur(0px) !important;
-		}
-	`;
+	style.textContent = ".gfu-red { font-family: monospace; text-align: center; font-size: 11px; padding-top: 24px; color: red !important; } .EbMsme { transition: filter cubic-bezier(0.4, 0, 0.2, 1) 0.3s; filter: blur(8px) !important; } .EbMsme:hover { filter: blur(0px) !important; }";
 	document.head.appendChild(style);
 
 	function ButtonAction() {
@@ -191,7 +176,7 @@
 					ErrorSpan.appendChild(AnchorSpan);
 					break;
 				default:
-					console.warn(`Unhandled error type: ${JSON.stringify(Errored)}`);
+					console.warn("Unhandled error type: " + JSON.stringify(Errored));
 			}
 			return;
 		}
@@ -316,10 +301,10 @@
 	};
 })();
 `;
-	
+
 	// Inject the script into the page
 	(document.head || document.documentElement).appendChild(script);
 	script.remove(); // Clean up the script tag after injection
-	
+
 	console.log("Google Forms Unlocker - Successfully injected into page");
 })();
