@@ -1,15 +1,6 @@
-// Google Forms Locked Mode Bypass
-// Based on https://github.com/xNasuni/google-forms-unlocker
-// Runs in MAIN world via manifest.json "world": "MAIN"
-
-console.log("Google Forms Unlocker - Running in MAIN world");
-
-// Check if bypass is enabled via localStorage (set by forms-bypass-init.js in isolated world)
 const bypassEnabled = localStorage.getItem("gfu-bypass-enabled") === "true";
-console.log("Google Forms Unlocker - Bypass enabled:", bypassEnabled);
 
 if (!bypassEnabled) {
-	console.log("Google Forms bypass is disabled in settings - exiting");
 	throw new Error("Google Forms bypass disabled");
 }
 
@@ -141,24 +132,10 @@ async function Initialize() {
 	if (Errored !== false) {
 		switch (MatchErrorType(Errored)) {
 			case ERROR_USER_AGENT:
-				const QuizHeader = GetQuizHeader();
-				const Error = document.createElement("div");
-				Error.classList.value = "gfu-red";
-				QuizHeader.appendChild(Error);
-				const ErrorSpan = document.createElement("span");
-				ErrorSpan.innerText = "Google Forms Unlocker - In order to continue, you need a User Agent Spoofer. ";
-				Error.appendChild(ErrorSpan);
-				const AnchorSpan = document.createElement("a");
-				AnchorSpan.classList.value = "gfu-red";
-				AnchorSpan.innerText = "Install one here.";
-				AnchorSpan.target = "_blank";
-				AnchorSpan.rel = "noopener";
-				AnchorSpan.href =
-					"https://github.com/xNasuni/google-forms-unlocker/blob/main/README.md#spoofing-your-user-agent";
-				ErrorSpan.appendChild(AnchorSpan);
+				// Removed user agent spoofer message - bypass is already active
 				break;
 			default:
-				console.warn("Unhandled error type: " + JSON.stringify(Errored));
+				break;
 		}
 		return;
 	}
@@ -177,7 +154,7 @@ async function Initialize() {
 			Button.setAttribute("jsaction", "");
 		}
 	}
-	MakeButton("Bypass", ButtonAction, "#ff90bf");
+	MakeButton("Desbloquear", ButtonAction, "#ff90bf");
 }
 
 var fakeIsLocked = shouldSpoof;
@@ -214,9 +191,6 @@ setInterval(() => {
 		}
 		return oldSendMessage(ExtensionId, Payload, function () {
 			if (window.chrome.runtime.lastError) {
-				console.warn(
-					"Google Forms Unlocker - Runtime error: " + JSON.stringify(window.chrome.runtime.lastError)
-				);
 				return;
 			}
 			Callback.apply(this, arguments);
@@ -225,7 +199,6 @@ setInterval(() => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-	console.log("Google Forms Unlocker - Initialized");
 	Initialize();
 });
 
@@ -240,7 +213,6 @@ const oldAddEventListener = document.addEventListener;
 document.addEventListener = function () {
 	const EventType = arguments[0];
 	if (BlacklistedEvents.indexOf(EventType) !== -1) {
-		console.log("Google Forms Unlocker - Blocked event type " + EventType);
 		return;
 	}
 	return oldAddEventListener.apply(this, arguments);

@@ -1,5 +1,5 @@
 const API_BASE_URL = "https://sillymaquina.vercel.app/api/v1";
-const EXTENSION_VERSION = "3.0.6";
+const EXTENSION_VERSION = "3.0.7";
 
 let currentUser = null;
 let currentConfig = null;
@@ -861,7 +861,7 @@ async function loadSettings(container) {
 				Desbloquear Google Forms em Modo Bloqueado
 			  </label>
 			  <small><i class="fas fa-info-circle"></i> Permite acessar Google Forms em modo bloqueado sem restrições. Funciona em Chromebooks gerenciados com extensões habilitadas.</small>
-			  <small class="warning-text"><i class="fas fa-exclamation-triangle"></i> Use apenas para fins educacionais. Requer recarregar a página do formulário após ativar.</small>
+			  <small class="warning-text"><i class="fas fa-exclamation-triangle"></i> Use apenas para fins educacionais. Requer recarregar a página do formulário após ativar até aparecer o botão de desbloquear.</small>
 			</div>
 		  </div>
 		  
