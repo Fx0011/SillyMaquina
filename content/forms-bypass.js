@@ -1,34 +1,58 @@
-// Google Forms Bypass Script
-// Based on xNasuni's Google Forms Unlocker v1.7
-// Integrated into SillyMaquina extension
+// Google Forms Locked Mode Bypass
+// Based on https://github.com/xNasuni/google-forms-unlocker
+// Only runs if formsLockedModeBypass is enabled in settings
 
-(function () {
-	"use strict";
+(async function () {
+	// Check if bypass is enabled
+	const settings = await chrome.storage.local.get("settings");
+	if (!settings.settings || !settings.settings.formsLockedModeBypass) {
+		console.log("Google Forms bypass is disabled in settings");
+		return;
+	}
+
+	console.log("Google Forms Unlocker initialized");
 
 	const kAssessmentAssistantExtensionId = "gndmhdcefbhlchkhipcnnbkcmicncehk";
-	const BlacklistedEvents = [
-		"mozvisibilitychange",
-		"webkitvisibilitychange",
-		"msvisibilitychange",
-		"visibilitychange",
-	];
+	const ERROR_USER_AGENT = "_useragenterror";
+	const ERROR_UNKNOWN = "_unknown";
 
-	let bypassEnabled = false;
-	// Use URL hash to persist shouldSpoof across reloads (like original script)
-	let shouldSpoof = location.hash === "#sillymaquina-bypass";
-	let oldSendMessage = window.chrome?.runtime?.sendMessage;
-	const oldAddEventListener = document.addEventListener;
+	var shouldSpoof = location.hash === "#gfu";
 
-	// Check if bypass is enabled in settings
-	async function checkBypassSettings() {
-		try {
-			const result = await chrome.storage.local.get("settings");
-			const settings = result.settings || {};
-			return settings.formsLockedModeBypass === true;
-		} catch (error) {
-			console.error("[SillyMaquina Forms Bypass] Error loading settings:", error);
-			return false;
+	// Support for browsers other than Chrome
+	window.chrome = window.chrome || {};
+	window.chrome.runtime = window.chrome.runtime || {};
+	window.chrome.runtime.sendMessage =
+		window.chrome.runtime.sendMessage ||
+		function (extId, payload, callback) {
+			chrome.runtime.lastError = 1;
+			callback();
+		};
+
+	const oldSendMessage = window.chrome.runtime.sendMessage;
+
+	// Add custom styles
+	const style = document.createElement("style");
+	style.textContent = `
+		.gfu-red {
+			font-family: monospace;
+			text-align: center;
+			font-size: 11px;
+			padding-top: 24px;
+			color: red !important;
 		}
+		.EbMsme {
+			transition: filter cubic-bezier(0.4, 0, 0.2, 1) 0.3s;
+			filter: blur(8px) !important;
+		}
+		.EbMsme:hover {
+			filter: blur(0px) !important;
+		}
+	`;
+	document.head.appendChild(style);
+
+	function ButtonAction() {
+		location.hash = "gfu";
+		location.reload();
 	}
 
 	function MatchExtensionId(ExtensionId) {
@@ -37,11 +61,11 @@
 
 	function GetGoogleForm() {
 		const Containers = document.querySelectorAll("div.RGiwf");
-		let Form;
+		var Form;
 
 		for (const Container of Containers) {
 			for (const Child of Container.childNodes) {
-				if (Child.nodeName === "FORM") {
+				if (Child.nodeName == "FORM") {
 					Form = Child;
 				}
 			}
@@ -50,11 +74,36 @@
 		return Form;
 	}
 
-	function ButtonAction() {
-		// Set hash and reload (persists shouldSpoof across reload)
-		location.hash = "sillymaquina-bypass";
-		console.log("[SillyMaquina Forms Bypass] Bypass button clicked, reloading with bypass active");
-		location.reload();
+	function GetQuizHeader() {
+		const QuizHeader = document.querySelector("div.mGzJpd");
+		return QuizHeader;
+	}
+
+	function PageIsErrored() {
+		const QuizHeader = GetQuizHeader();
+		if (QuizHeader === null) {
+			return false;
+		}
+
+		const ChildNodes = QuizHeader.childNodes;
+		if (
+			ChildNodes[3]?.getAttribute("aria-live") === "assertive" &&
+			ChildNodes[4]?.getAttribute("aria-live") === "assertive"
+		) {
+			return { title: ChildNodes[3].innerText, description: ChildNodes[4].innerText };
+		}
+		return false;
+	}
+
+	function MatchErrorType(error) {
+		if (
+			error.title === "You can't access this quiz." &&
+			error.description ===
+				"Locked mode is on. Only respondents using managed Chromebooks can open this quiz. Learn more"
+		) {
+			return ERROR_USER_AGENT;
+		}
+		return ERROR_UNKNOWN;
 	}
 
 	function MakeButton(Text, Callback, Color) {
@@ -71,7 +120,7 @@
 		Button.style.backgroundColor = Color;
 		Button.setAttribute("role", "button");
 		Button.setAttribute("tabindex", ButtonHolder.childNodes.length);
-		Button.setAttribute("sillymaquina-bypass-button", "true");
+		Button.setAttribute("mia-gfu-state", "custom-button");
 		ButtonHolder.appendChild(Button);
 
 		const Glow = document.createElement("div");
@@ -93,7 +142,6 @@
 
 		Button.addEventListener("click", Callback);
 
-		console.log("[SillyMaquina Forms Bypass] Bypass button added to form");
 		return {
 			destroy: function () {
 				Button.remove();
@@ -101,30 +149,69 @@
 		};
 	}
 
+	async function IsOnChromebook() {
+		return new Promise((resolve, _reject) => {
+			oldSendMessage(kAssessmentAssistantExtensionId, { command: "isLocked" }, function (_response) {
+				if (window.chrome.runtime.lastError) {
+					resolve(false);
+				}
+				resolve(true);
+			});
+		});
+	}
+
 	async function Initialize() {
-		console.log("[SillyMaquina Forms Bypass] Initializing...");
+		const Errored = PageIsErrored();
+		if (Errored !== false) {
+			switch (MatchErrorType(Errored)) {
+				case ERROR_USER_AGENT:
+					const QuizHeader = GetQuizHeader();
+					const Error = document.createElement("div");
+					Error.classList.value = "gfu-red";
+					QuizHeader.appendChild(Error);
+
+					const ErrorSpan = document.createElement("span");
+					ErrorSpan.innerText =
+						"Google Forms Unlocker - In order to continue, you need a User Agent Spoofer. ";
+					Error.appendChild(ErrorSpan);
+
+					const AnchorSpan = document.createElement("a");
+					AnchorSpan.classList.value = "gfu-red";
+					AnchorSpan.innerText = "Install one here.";
+					AnchorSpan.target = "_blank";
+					AnchorSpan.rel = "noopener";
+					AnchorSpan.href =
+						"https://github.com/xNasuni/google-forms-unlocker/blob/main/README.md#spoofing-your-user-agent";
+					ErrorSpan.appendChild(AnchorSpan);
+					break;
+				default:
+					console.warn(`Unhandled error type: ${JSON.stringify(Errored)}`);
+			}
+			return;
+		}
 
 		const Form = GetGoogleForm();
 		if (Form === undefined) {
-			console.log("[SillyMaquina Forms Bypass] Form not found yet, will retry");
 			return false;
 		}
 
-		// Only add button if bypass is not yet active (no hash)
-		if (!shouldSpoof) {
-			MakeButton("Desbloquear", ButtonAction, "#667eea");
-		} else {
-			console.log("[SillyMaquina Forms Bypass] Bypass already active via hash, skipping button");
-		}
+		const IsRealManagedChromebook = await IsOnChromebook();
 
-		return true;
+		if (IsRealManagedChromebook === false) {
+			const ButtonHolder = Form.childNodes[2];
+			for (const Button of ButtonHolder.childNodes) {
+				if (Button.getAttribute("mia-gfu-state") === "custom-button") {
+					continue;
+				}
+				Button.style.backgroundColor = "#ccc";
+				Button.setAttribute("jsaction", "");
+			}
+		}
+		MakeButton("Bypass", ButtonAction, "#ff90bf");
 	}
 
-	// fakeIsLocked starts as shouldSpoof value
 	var fakeIsLocked = shouldSpoof;
 	function InterceptCommand(Payload, Callback) {
-		console.log("[SillyMaquina Forms Bypass] Intercepted:", Payload.command);
-
 		switch (Payload.command) {
 			case "isLocked":
 				Callback({ locked: fakeIsLocked });
@@ -145,37 +232,35 @@
 		return false;
 	}
 
-	// Set up continuous interception (this is the key to making it work)
-	function setupContinuousInterception() {
-		setInterval(() => {
-			window.chrome.runtime.sendMessage = function () {
-				const ExtensionId = arguments[0];
-				const Payload = arguments[1];
-				const Callback = arguments[2];
+	setInterval(() => {
+		window.chrome.runtime.sendMessage = function () {
+			const ExtensionId = arguments[0];
+			const Payload = arguments[1];
+			const Callback = arguments[2];
 
-				if (MatchExtensionId(ExtensionId)) {
-					const Intercepted = InterceptCommand(Payload, Callback);
-					if (Intercepted) {
-						return null;
-					}
+			if (MatchExtensionId(ExtensionId)) {
+				const Intercepted = InterceptCommand(Payload, Callback);
+				if (Intercepted) {
+					return null;
 				}
+			}
 
-				return oldSendMessage(ExtensionId, Payload, function () {
-					if (window.chrome.runtime.lastError) {
-						console.warn("[SillyMaquina Forms Bypass] Runtime error:", window.chrome.runtime.lastError);
-						return;
-					}
-					if (Callback) {
-						Callback.apply(this, arguments);
-					}
-				});
-			};
-		}, 0);
+			return oldSendMessage(ExtensionId, Payload, function () {
+				if (window.chrome.runtime.lastError) {
+					console.warn(`Google Forms Unlocker - Runtime error: ${JSON.stringify(chrome.runtime.lastError)}`);
+					return;
+				}
+				Callback.apply(this, arguments);
+			});
+		};
+	});
 
-		console.log("[SillyMaquina Forms Bypass] Continuous interception activated");
-	}
+	document.addEventListener("DOMContentLoaded", () => {
+		console.log("Google Forms Unlocker - Initialized");
+		Initialize();
+	});
 
-	// Set up visibility property overrides
+	// Override document visibility to prevent detection
 	Object.defineProperty(document, "hidden", {
 		value: false,
 		writable: false,
@@ -197,84 +282,24 @@
 		writable: false,
 	});
 
-	// Block visibility change event listeners
+	// Block visibility change events
+	const BlacklistedEvents = [
+		"mozvisibilitychange",
+		"webkitvisibilitychange",
+		"msvisibilitychange",
+		"visibilitychange",
+	];
+	const oldAddEventListener = document.addEventListener;
 	document.addEventListener = function () {
 		const EventType = arguments[0];
 		const Method = arguments[1];
 		const Options = arguments[2];
 
 		if (BlacklistedEvents.indexOf(EventType) !== -1) {
-			console.log(`[SillyMaquina Forms Bypass] Blocked ${EventType} event from being registered`);
+			console.log(`Google Forms Unlocker - Blocked event type ${EventType}`);
 			return;
 		}
 
 		return oldAddEventListener.apply(this, arguments);
 	};
-
-	// Initialize bypass when DOM is ready
-	async function initializeBypass() {
-		bypassEnabled = await checkBypassSettings();
-
-		if (!bypassEnabled) {
-			console.log("[SillyMaquina Forms Bypass] Disabled in settings");
-			return;
-		}
-
-		console.log("[SillyMaquina Forms Bypass] Enabled in settings");
-		
-		// Log if bypass is active via hash
-		if (shouldSpoof) {
-			console.log("[SillyMaquina Forms Bypass] Bypass active via URL hash");
-		}
-
-		// Wait 1 second for slow Chromebooks
-		await new Promise((resolve) => setTimeout(resolve, 1000));
-
-		// ALWAYS set up the interception (whether button clicked or not)
-		setupContinuousInterception();
-
-		// Try to add button, retry if form not ready
-		let attempts = 0;
-		const maxAttempts = 30;
-
-		const tryInitialize = async () => {
-			attempts++;
-			const success = await Initialize();
-
-			if (!success && attempts < maxAttempts) {
-				console.log(`[SillyMaquina Forms Bypass] Retry attempt ${attempts}/${maxAttempts}`);
-				setTimeout(tryInitialize, 1000);
-			} else if (success) {
-				console.log("[SillyMaquina Forms Bypass] Initialization complete");
-			} else {
-				console.log("[SillyMaquina Forms Bypass] Max attempts reached");
-			}
-		};
-
-		tryInitialize();
-	}
-
-	// Listen for settings changes
-	chrome.storage.onChanged.addListener((changes, areaName) => {
-		if (areaName === "local" && changes.settings) {
-			const newSettings = changes.settings.newValue || {};
-			const newBypassEnabled = newSettings.formsLockedModeBypass === true;
-
-			if (newBypassEnabled !== bypassEnabled) {
-				console.log(
-					`[SillyMaquina Forms Bypass] Settings changed, bypass is now ${
-						newBypassEnabled ? "enabled" : "disabled"
-					}`
-				);
-				location.reload();
-			}
-		}
-	});
-
-	// Start initialization
-	if (document.readyState === "loading") {
-		document.addEventListener("DOMContentLoaded", initializeBypass);
-	} else {
-		initializeBypass();
-	}
 })();
