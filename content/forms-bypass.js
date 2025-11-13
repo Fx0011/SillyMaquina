@@ -2,26 +2,27 @@
 // Based on https://github.com/xNasuni/google-forms-unlocker
 // Runs in MAIN world (page context) via manifest.json "world": "MAIN"
 
-// Check if bypass is enabled via custom event from ISOLATED world
-let bypassEnabled = false;
-let bypassInitialized = false;
+console.log("🤖 SillyMaquina - Bypass script (MAIN world) carregado");
 
-// Listen for settings from ISOLATED world content script
-window.addEventListener("SILLY_MAQUINA_SETTINGS", (event) => {
-	const settings = event.detail;
-	bypassEnabled = settings.formsLockedModeBypass === true;
+// Wait for settings to be injected by ISOLATED world script
+function checkAndInitialize() {
+	if (window.SILLY_MAQUINA_SETTINGS) {
+		console.log("🤖 SillyMaquina - Settings encontradas:", window.SILLY_MAQUINA_SETTINGS);
+		const bypassEnabled = window.SILLY_MAQUINA_SETTINGS.formsLockedModeBypass === true;
 
-	if (bypassEnabled && !bypassInitialized) {
-		console.log("🤖 SillyMaquina - Google Forms Bypass ativo");
-		bypassInitialized = true;
-		initializeBypass();
-	} else if (!bypassEnabled) {
-		console.log("🤖 SillyMaquina - Google Forms Bypass desativado (configure nas opções)");
+		if (bypassEnabled) {
+			console.log("🤖 SillyMaquina - Google Forms Bypass ativo");
+			initializeBypass();
+		} else {
+			console.log("🤖 SillyMaquina - Google Forms Bypass desativado (configure nas opções)");
+		}
+	} else {
+		// Settings not ready yet, wait a bit
+		setTimeout(checkAndInitialize, 50);
 	}
-});
+}
 
-// Request settings from ISOLATED world
-window.dispatchEvent(new CustomEvent("SILLY_MAQUINA_REQUEST_SETTINGS"));
+checkAndInitialize();
 
 function initializeBypass() {
 	const kAssessmentAssistantExtensionId = "gndmhdcefbhlchkhipcnnbkcmicncehk";

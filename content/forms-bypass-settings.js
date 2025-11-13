@@ -1,31 +1,22 @@
 // This script runs in ISOLATED world and can access chrome.storage
-// It communicates with the MAIN world script via custom events
+// It injects settings into the page's localStorage for MAIN world to access
 
-// Listen for settings requests from MAIN world
-window.addEventListener("SILLY_MAQUINA_REQUEST_SETTINGS", async () => {
+(async () => {
 	try {
-		const settings = await chrome.storage.local.get(["formsLockedModeBypass"]);
+		const settings = await chrome.storage.local.get(null);
+		console.log("🤖 SillyMaquina - Settings carregadas:", settings);
 
-		// Send settings to MAIN world
-		window.dispatchEvent(
-			new CustomEvent("SILLY_MAQUINA_SETTINGS", {
-				detail: {
-					formsLockedModeBypass: settings.formsLockedModeBypass || false,
-				},
-			})
-		);
+		// Inject into page's localStorage
+		const script = document.createElement("script");
+		script.textContent = `
+			window.SILLY_MAQUINA_SETTINGS = ${JSON.stringify(settings)};
+			console.log("🤖 SillyMaquina - Settings injetadas no MAIN world:", window.SILLY_MAQUINA_SETTINGS);
+		`;
+		(document.head || document.documentElement).appendChild(script);
+		script.remove();
+
+		console.log("🤖 SillyMaquina - Settings injetadas com sucesso");
 	} catch (error) {
-		console.error("🤖 SillyMaquina - Erro ao obter configurações:", error);
-		// Send default settings on error
-		window.dispatchEvent(
-			new CustomEvent("SILLY_MAQUINA_SETTINGS", {
-				detail: {
-					formsLockedModeBypass: false,
-				},
-			})
-		);
+		console.error("🤖 SillyMaquina - Erro ao carregar settings:", error);
 	}
-});
-
-// Request settings on page load
-window.dispatchEvent(new CustomEvent("SILLY_MAQUINA_REQUEST_SETTINGS"));
+})();
