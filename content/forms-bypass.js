@@ -1,5 +1,5 @@
 // Google Forms Bypass Script
-// Based on xNasuni's Google Forms Unlocker
+// Based on xNasuni's Google Forms Unlocker v1.7
 // Integrated into SillyMaquina extension
 
 (function () {
@@ -11,325 +11,258 @@
 		"webkitvisibilitychange",
 		"msvisibilitychange",
 		"visibilitychange",
-		"pagehide",
 	];
 
-	let isEnabled = false;
-	let isBypassActive = false;
-	let fakeIsLocked = false;
-	let oldSendMessage = null;
-	let oldAddEventListener = null;
-	let setupAttempts = 0;
-	const MAX_SETUP_ATTEMPTS = 30; // Try for up to 30 seconds
+	let bypassEnabled = false;
+	let shouldSpoof = false;
+	let oldSendMessage = window.chrome?.runtime?.sendMessage;
+	const oldAddEventListener = document.addEventListener;
 
-	function matchExtensionId(extensionId) {
-		return extensionId === kAssessmentAssistantExtensionId;
-	}
-
-	function interceptCommand(payload, callback) {
-		console.log("[SillyMaquina Forms Bypass] Intercepted command:", payload);
-
-		switch (payload.command) {
-			case "isLocked":
-				callback({ locked: fakeIsLocked });
-				return true;
-			case "lock":
-				fakeIsLocked = false; // Always pretend we're unlocked
-				callback({ locked: fakeIsLocked });
-				return true;
-			case "unlock":
-				fakeIsLocked = false;
-				callback({ locked: fakeIsLocked });
-				return true;
-		}
-
-		return false;
-	}
-
-	// Check if the "Continuar" (Continue) or "Start quiz" button is visible
-	function isContinueButtonVisible() {
-		// Look for the continue/start button with the specific text
-		const buttons = document.querySelectorAll("span.NPEfkd.RveJvd.snByac");
-		for (const button of buttons) {
-			const text = button.textContent.trim().toLowerCase();
-			if (text === "continuar" || text === "start quiz" || text === "iniciar") {
-				// Check if button is visible
-				const rect = button.getBoundingClientRect();
-				const isVisible =
-					rect.width > 0 &&
-					rect.height > 0 &&
-					window.getComputedStyle(button).visibility !== "hidden" &&
-					window.getComputedStyle(button).display !== "none";
-
-				if (isVisible) {
-					console.log("[SillyMaquina Forms Bypass] Continue button found and visible");
-					return true;
-				}
-			}
-		}
-		return false;
-	}
-
-	// Track that bypass was activated for this form URL
-	async function markFormAsProcessed() {
-		const formUrl = window.location.href;
-		try {
-			const result = await chrome.storage.local.get("processedForms");
-			const processedForms = result.processedForms || {};
-			processedForms[formUrl] = {
-				timestamp: Date.now(),
-				activated: true,
-			};
-			await chrome.storage.local.set({ processedForms });
-			console.log("[SillyMaquina Forms Bypass] Form marked as processed");
-		} catch (error) {
-			console.error("[SillyMaquina Forms Bypass] Error marking form as processed:", error);
-		}
-	}
-
-	// Check if this form was already processed recently (within last hour)
-	async function wasRecentlyProcessed() {
-		const formUrl = window.location.href;
-		try {
-			const result = await chrome.storage.local.get("processedForms");
-			const processedForms = result.processedForms || {};
-			const formData = processedForms[formUrl];
-
-			if (formData && formData.activated) {
-				const hourAgo = Date.now() - 60 * 60 * 1000;
-				if (formData.timestamp > hourAgo) {
-					console.log("[SillyMaquina Forms Bypass] Form was recently processed, reactivating immediately");
-					return true;
-				}
-			}
-		} catch (error) {
-			console.error("[SillyMaquina Forms Bypass] Error checking processed forms:", error);
-		}
-		return false;
-	}
-	function setupBypass() {
-		if (isBypassActive) {
-			console.log("[SillyMaquina Forms Bypass] Bypass already active, skipping setup");
-			return;
-		}
-
-		// Store original functions
-		if (!oldSendMessage && window.chrome && window.chrome.runtime) {
-			oldSendMessage = window.chrome.runtime.sendMessage;
-		}
-		if (!oldAddEventListener) {
-			oldAddEventListener = document.addEventListener;
-		}
-
-		// Use setInterval to continuously re-apply intercepts (like original script)
-		// This ensures the interception stays active even if something tries to override it
-		setInterval(() => {
-			// Intercept chrome.runtime.sendMessage
-			if (window.chrome && window.chrome.runtime) {
-				window.chrome.runtime.sendMessage = function () {
-					const extensionId = arguments[0];
-					const payload = arguments[1];
-					const callback = arguments[2];
-
-					if (matchExtensionId(extensionId)) {
-						const intercepted = interceptCommand(payload, callback);
-						if (intercepted) {
-							return null;
-						}
-					}
-
-					// Call original sendMessage for non-intercepted calls
-					if (oldSendMessage) {
-						return oldSendMessage(extensionId, payload, function () {
-							if (window.chrome.runtime.lastError) {
-								console.warn(
-									"[SillyMaquina Forms Bypass] Runtime error:",
-									window.chrome.runtime.lastError
-								);
-							}
-							if (callback) {
-								callback.apply(this, arguments);
-							}
-						});
-					}
-				};
-			}
-
-			// Override document visibility properties continuously
-			try {
-				Object.defineProperty(document, "hidden", {
-					value: false,
-					writable: false,
-					configurable: true,
-				});
-				Object.defineProperty(document, "visibilityState", {
-					value: "visible",
-					writable: false,
-					configurable: true,
-				});
-				Object.defineProperty(document, "webkitVisibilityState", {
-					value: "visible",
-					writable: false,
-					configurable: true,
-				});
-				Object.defineProperty(document, "mozVisibilityState", {
-					value: "visible",
-					writable: false,
-					configurable: true,
-				});
-				Object.defineProperty(document, "msVisibilityState", {
-					value: "visible",
-					writable: false,
-					configurable: true,
-				});
-			} catch (e) {
-				// Properties might already be defined, that's ok
-			}
-
-			// Block visibility change event listeners continuously
-			document.addEventListener = function () {
-				const eventType = arguments[0];
-				const method = arguments[1];
-				const options = arguments[2];
-
-				if (BlacklistedEvents.indexOf(eventType) !== -1) {
-					console.log(`[SillyMaquina Forms Bypass] Blocked ${eventType} event from being registered`);
-					return;
-				}
-
-				return oldAddEventListener.apply(this, arguments);
-			};
-		}, 0); // Run immediately and continuously
-
-		isBypassActive = true;
-		markFormAsProcessed();
-		console.log("[SillyMaquina Forms Bypass] Bypass activated for Google Forms locked mode");
-	}
-
-	function disableBypass() {
-		// Restore original functions if they were saved
-		if (oldSendMessage && window.chrome && window.chrome.runtime) {
-			window.chrome.runtime.sendMessage = oldSendMessage;
-		}
-		if (oldAddEventListener) {
-			document.addEventListener = oldAddEventListener;
-		}
-
-		console.log("[SillyMaquina Forms Bypass] Bypass disabled");
-	}
-
-	// Check if we're on a Google Forms page
-	function isGoogleFormsPage() {
-		return window.location.hostname === "docs.google.com" && window.location.pathname.includes("/forms/");
-	}
-
-	// Wait for continue button and then activate bypass
-	async function waitForContinueButtonAndActivate() {
-		setupAttempts++;
-
-		if (setupAttempts > MAX_SETUP_ATTEMPTS) {
-			console.log("[SillyMaquina Forms Bypass] Max attempts reached, activating anyway");
-			setupBypass();
-			return;
-		}
-
-		// Check if button is visible or if form was recently processed
-		const buttonVisible = isContinueButtonVisible();
-		const recentlyProcessed = await wasRecentlyProcessed();
-
-		if (buttonVisible || recentlyProcessed) {
-			console.log(
-				`[SillyMaquina Forms Bypass] ${
-					buttonVisible ? "Continue button detected" : "Form recently processed"
-				}, activating bypass`
-			);
-			setupBypass();
-		} else {
-			// Try again in 1 second (good for slow Chromebooks)
-			console.log(
-				`[SillyMaquina Forms Bypass] Continue button not visible yet, attempt ${setupAttempts}/${MAX_SETUP_ATTEMPTS}`
-			);
-			setTimeout(waitForContinueButtonAndActivate, 1000);
-		}
-	}
-
-	// Initialize bypass based on settings
-	async function initializeBypass() {
-		if (!isGoogleFormsPage()) {
-			return;
-		}
-
-		// Wait 1 second before doing anything (for slow Chromebooks)
-		await new Promise((resolve) => setTimeout(resolve, 1000));
-
+	// Check if bypass is enabled in settings
+	async function checkBypassSettings() {
 		try {
 			const result = await chrome.storage.local.get("settings");
 			const settings = result.settings || {};
-
-			if (settings.formsLockedModeBypass === true) {
-				isEnabled = true;
-				console.log("[SillyMaquina Forms Bypass] Enabled in settings, waiting for form to be ready");
-				waitForContinueButtonAndActivate();
-			} else {
-				console.log("[SillyMaquina Forms Bypass] Disabled in settings");
-			}
+			return settings.formsLockedModeBypass === true;
 		} catch (error) {
 			console.error("[SillyMaquina Forms Bypass] Error loading settings:", error);
+			return false;
 		}
+	}
+
+	function MatchExtensionId(ExtensionId) {
+		return ExtensionId === kAssessmentAssistantExtensionId;
+	}
+
+	function GetGoogleForm() {
+		const Containers = document.querySelectorAll("div.RGiwf");
+		let Form;
+
+		for (const Container of Containers) {
+			for (const Child of Container.childNodes) {
+				if (Child.nodeName === "FORM") {
+					Form = Child;
+				}
+			}
+		}
+
+		return Form;
+	}
+
+	function ButtonAction() {
+		shouldSpoof = true;
+		console.log("[SillyMaquina Forms Bypass] Bypass button clicked, activating bypass");
+		location.reload();
+	}
+
+	function MakeButton(Text, Callback, Color) {
+		const Form = GetGoogleForm();
+		if (Form === undefined) {
+			return false;
+		}
+
+		const ButtonHolder = Form.childNodes[2];
+
+		const Button = document.createElement("div");
+		Button.classList.value = "uArJ5e UQuaGc Y5sE8d TIHcue QvWxOd";
+		Button.style.marginLeft = "10px";
+		Button.style.backgroundColor = Color;
+		Button.setAttribute("role", "button");
+		Button.setAttribute("tabindex", ButtonHolder.childNodes.length);
+		Button.setAttribute("sillymaquina-bypass-button", "true");
+		ButtonHolder.appendChild(Button);
+
+		const Glow = document.createElement("div");
+		Glow.classList.value = "Fvio9d MbhUzd";
+		Glow.style.top = "21px";
+		Glow.style.left = "9px";
+		Glow.style.width = "110px";
+		Glow.style.height = "110px";
+		Button.appendChild(Glow);
+
+		const TextContainer = document.createElement("span");
+		TextContainer.classList.value = "l4V7wb Fxmcue";
+		Button.appendChild(TextContainer);
+
+		const TextSpan = document.createElement("span");
+		TextSpan.classList.value = "NPEfkd RveJvd snByac";
+		TextSpan.innerText = Text;
+		TextContainer.appendChild(TextSpan);
+
+		Button.addEventListener("click", Callback);
+
+		console.log("[SillyMaquina Forms Bypass] Bypass button added to form");
+		return {
+			destroy: function () {
+				Button.remove();
+			},
+		};
+	}
+
+	async function Initialize() {
+		console.log("[SillyMaquina Forms Bypass] Initializing...");
+
+		const Form = GetGoogleForm();
+		if (Form === undefined) {
+			console.log("[SillyMaquina Forms Bypass] Form not found yet, will retry");
+			return false;
+		}
+
+		// Add the bypass button
+		MakeButton("Desbloquear", ButtonAction, "#667eea");
+
+		return true;
+	}
+
+	var fakeIsLocked = shouldSpoof;
+	function InterceptCommand(Payload, Callback) {
+		console.log("[SillyMaquina Forms Bypass] Intercepted:", Payload.command);
+
+		switch (Payload.command) {
+			case "isLocked":
+				Callback({ locked: fakeIsLocked });
+				return true;
+			case "lock":
+				if (shouldSpoof) {
+					return false;
+				}
+				fakeIsLocked = false;
+				Callback({ locked: fakeIsLocked });
+				return true;
+			case "unlock":
+				fakeIsLocked = false;
+				Callback({ locked: fakeIsLocked });
+				return true;
+		}
+
+		return false;
+	}
+
+	// Set up continuous interception (this is the key to making it work)
+	function setupContinuousInterception() {
+		setInterval(() => {
+			window.chrome.runtime.sendMessage = function () {
+				const ExtensionId = arguments[0];
+				const Payload = arguments[1];
+				const Callback = arguments[2];
+
+				if (MatchExtensionId(ExtensionId)) {
+					const Intercepted = InterceptCommand(Payload, Callback);
+					if (Intercepted) {
+						return null;
+					}
+				}
+
+				return oldSendMessage(ExtensionId, Payload, function () {
+					if (window.chrome.runtime.lastError) {
+						console.warn("[SillyMaquina Forms Bypass] Runtime error:", window.chrome.runtime.lastError);
+						return;
+					}
+					if (Callback) {
+						Callback.apply(this, arguments);
+					}
+				});
+			};
+		}, 0);
+
+		console.log("[SillyMaquina Forms Bypass] Continuous interception activated");
+	}
+
+	// Set up visibility property overrides
+	Object.defineProperty(document, "hidden", {
+		value: false,
+		writable: false,
+	});
+	Object.defineProperty(document, "visibilityState", {
+		value: "visible",
+		writable: false,
+	});
+	Object.defineProperty(document, "webkitVisibilityState", {
+		value: "visible",
+		writable: false,
+	});
+	Object.defineProperty(document, "mozVisibilityState", {
+		value: "visible",
+		writable: false,
+	});
+	Object.defineProperty(document, "msVisibilityState", {
+		value: "visible",
+		writable: false,
+	});
+
+	// Block visibility change event listeners
+	document.addEventListener = function () {
+		const EventType = arguments[0];
+		const Method = arguments[1];
+		const Options = arguments[2];
+
+		if (BlacklistedEvents.indexOf(EventType) !== -1) {
+			console.log(`[SillyMaquina Forms Bypass] Blocked ${EventType} event from being registered`);
+			return;
+		}
+
+		return oldAddEventListener.apply(this, arguments);
+	};
+
+	// Initialize bypass when DOM is ready
+	async function initializeBypass() {
+		bypassEnabled = await checkBypassSettings();
+
+		if (!bypassEnabled) {
+			console.log("[SillyMaquina Forms Bypass] Disabled in settings");
+			return;
+		}
+
+		console.log("[SillyMaquina Forms Bypass] Enabled in settings");
+
+		// Wait 1 second for slow Chromebooks
+		await new Promise((resolve) => setTimeout(resolve, 1000));
+
+		// Set up the interception immediately
+		setupContinuousInterception();
+
+		// Try to add button, retry if form not ready
+		let attempts = 0;
+		const maxAttempts = 30;
+
+		const tryInitialize = async () => {
+			attempts++;
+			const success = await Initialize();
+
+			if (!success && attempts < maxAttempts) {
+				console.log(`[SillyMaquina Forms Bypass] Retry attempt ${attempts}/${maxAttempts}`);
+				setTimeout(tryInitialize, 1000);
+			} else if (success) {
+				console.log("[SillyMaquina Forms Bypass] Initialization complete");
+			} else {
+				console.log("[SillyMaquina Forms Bypass] Max attempts reached");
+			}
+		};
+
+		tryInitialize();
 	}
 
 	// Listen for settings changes
 	chrome.storage.onChanged.addListener((changes, areaName) => {
 		if (areaName === "local" && changes.settings) {
 			const newSettings = changes.settings.newValue || {};
-			const bypassEnabled = newSettings.formsLockedModeBypass === true;
+			const newBypassEnabled = newSettings.formsLockedModeBypass === true;
 
-			if (isGoogleFormsPage()) {
-				if (bypassEnabled && !isEnabled && !isBypassActive) {
-					isEnabled = true;
-					setupAttempts = 0;
-					console.log("[SillyMaquina Forms Bypass] Enabled via settings change");
-					waitForContinueButtonAndActivate();
-				} else if (!bypassEnabled && isEnabled) {
-					isEnabled = false;
-					disableBypass();
-				}
+			if (newBypassEnabled !== bypassEnabled) {
+				console.log(
+					`[SillyMaquina Forms Bypass] Settings changed, bypass is now ${
+						newBypassEnabled ? "enabled" : "disabled"
+					}`
+				);
+				location.reload();
 			}
 		}
 	});
 
-	// Clean up old processed forms (older than 1 hour) on load
-	async function cleanupOldProcessedForms() {
-		try {
-			const result = await chrome.storage.local.get("processedForms");
-			const processedForms = result.processedForms || {};
-			const hourAgo = Date.now() - 60 * 60 * 1000;
-			let cleaned = false;
-
-			for (const url in processedForms) {
-				if (processedForms[url].timestamp < hourAgo) {
-					delete processedForms[url];
-					cleaned = true;
-				}
-			}
-
-			if (cleaned) {
-				await chrome.storage.local.set({ processedForms });
-				console.log("[SillyMaquina Forms Bypass] Cleaned up old processed forms");
-			}
-		} catch (error) {
-			console.error("[SillyMaquina Forms Bypass] Error cleaning up processed forms:", error);
-		}
-	}
-
-	// Initialize when page loads
+	// Start initialization
 	if (document.readyState === "loading") {
-		document.addEventListener("DOMContentLoaded", () => {
-			cleanupOldProcessedForms();
-			initializeBypass();
-		});
+		document.addEventListener("DOMContentLoaded", initializeBypass);
 	} else {
-		cleanupOldProcessedForms();
 		initializeBypass();
 	}
 })();
