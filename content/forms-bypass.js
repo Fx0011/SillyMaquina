@@ -3,14 +3,21 @@
 // Only runs if formsLockedModeBypass is enabled in settings
 
 (async function () {
-	// Check if bypass is enabled
+	// Check if bypass is enabled in content script context
 	const settings = await chrome.storage.local.get("settings");
 	if (!settings.settings || !settings.settings.formsLockedModeBypass) {
 		console.log("Google Forms bypass is disabled in settings");
 		return;
 	}
 
-	console.log("Google Forms Unlocker initialized");
+	console.log("Google Forms Unlocker - Injecting into page context");
+
+	// CRITICAL: We need to inject the actual bypass code into the PAGE CONTEXT
+	// Content scripts run in an isolated environment and cannot intercept page JS
+	const script = document.createElement('script');
+	script.textContent = `
+(function() {
+	console.log("Google Forms Unlocker initialized in page context");
 
 	const kAssessmentAssistantExtensionId = "gndmhdcefbhlchkhipcnnbkcmicncehk";
 	const ERROR_USER_AGENT = "_useragenterror";
@@ -19,16 +26,15 @@
 	var shouldSpoof = location.hash === "#gfu";
 
 	// Support for browsers other than Chrome
-	window.chrome = window.chrome || {};
-	window.chrome.runtime = window.chrome.runtime || {};
-	window.chrome.runtime.sendMessage =
-		window.chrome.runtime.sendMessage ||
-		function (extId, payload, callback) {
-			chrome.runtime.lastError = 1;
-			callback();
-		};
+	// IMPORTANT: No 'window.' prefix needed - we're already in page context
+	chrome = chrome || {};
+	chrome.runtime = chrome.runtime || {};
+	chrome.runtime.sendMessage = chrome.runtime.sendMessage || function(extId, payload, callback) {
+		chrome.runtime.lastError = 1;
+		callback();
+	};
 
-	const oldSendMessage = window.chrome.runtime.sendMessage;
+	const oldSendMessage = chrome.runtime.sendMessage;
 
 	// Add custom styles
 	const style = document.createElement("style");
@@ -152,7 +158,7 @@
 	async function IsOnChromebook() {
 		return new Promise((resolve, _reject) => {
 			oldSendMessage(kAssessmentAssistantExtensionId, { command: "isLocked" }, function (_response) {
-				if (window.chrome.runtime.lastError) {
+				if (chrome.runtime.lastError) {
 					resolve(false);
 				}
 				resolve(true);
@@ -233,7 +239,7 @@
 	}
 
 	setInterval(() => {
-		window.chrome.runtime.sendMessage = function () {
+		chrome.runtime.sendMessage = function () {
 			const ExtensionId = arguments[0];
 			const Payload = arguments[1];
 			const Callback = arguments[2];
@@ -246,8 +252,8 @@
 			}
 
 			return oldSendMessage(ExtensionId, Payload, function () {
-				if (window.chrome.runtime.lastError) {
-					console.warn(`Google Forms Unlocker - Runtime error: ${JSON.stringify(chrome.runtime.lastError)}`);
+				if (chrome.runtime.lastError) {
+					console.warn('Google Forms Unlocker - Runtime error: ' + JSON.stringify(chrome.runtime.lastError));
 					return;
 				}
 				Callback.apply(this, arguments);
@@ -256,30 +262,36 @@
 	});
 
 	document.addEventListener("DOMContentLoaded", () => {
-		console.log("Google Forms Unlocker - Initialized");
+		console.log("Google Forms Unlocker - Initialized in page context");
 		Initialize();
 	});
 
 	// Override document visibility to prevent detection
+	// These work because we're in the actual page context now
 	Object.defineProperty(document, "hidden", {
 		value: false,
 		writable: false,
+		configurable: true
 	});
 	Object.defineProperty(document, "visibilityState", {
 		value: "visible",
 		writable: false,
+		configurable: true
 	});
 	Object.defineProperty(document, "webkitVisibilityState", {
 		value: "visible",
 		writable: false,
+		configurable: true
 	});
 	Object.defineProperty(document, "mozVisibilityState", {
 		value: "visible",
 		writable: false,
+		configurable: true
 	});
 	Object.defineProperty(document, "msVisibilityState", {
 		value: "visible",
 		writable: false,
+		configurable: true
 	});
 
 	// Block visibility change events
@@ -296,10 +308,18 @@
 		const Options = arguments[2];
 
 		if (BlacklistedEvents.indexOf(EventType) !== -1) {
-			console.log(`Google Forms Unlocker - Blocked event type ${EventType}`);
+			console.log('Google Forms Unlocker - Blocked event type ' + EventType);
 			return;
 		}
 
 		return oldAddEventListener.apply(this, arguments);
 	};
+})();
+`;
+	
+	// Inject the script into the page
+	(document.head || document.documentElement).appendChild(script);
+	script.remove(); // Clean up the script tag after injection
+	
+	console.log("Google Forms Unlocker - Successfully injected into page");
 })();
