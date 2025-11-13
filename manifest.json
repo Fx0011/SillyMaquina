@@ -28,6 +28,7 @@
 			"matches": ["*://docs.google.com/forms/*"],
 			"js": ["content/forms-bypass.js"],
 			"run_at": "document_start",
+			"world": "MAIN",
 			"all_frames": true
 		}
 	],
