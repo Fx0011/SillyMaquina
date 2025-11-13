@@ -12,9 +12,9 @@
 
 	console.log("Google Forms Unlocker - Injecting into page context");
 
-	// CRITICAL: We need to inject the actual bypass code into the PAGE CONTEXT
-	// Content scripts run in an isolated environment and cannot intercept page JS
-	// Using blob URL to bypass CSP restrictions
+	// CRITICAL: Inject at document-start BEFORE CSP is applied
+	// This mimics how Tampermonkey/Violentmonkey inject userscripts
+	// We inject directly into the page's context synchronously
 	const scriptCode = `
 (function() {
 	console.log("Google Forms Unlocker initialized in page context");
@@ -302,22 +302,27 @@
 })();
 `;
 
-	// Create a blob URL to bypass CSP
-	const blob = new Blob([scriptCode], { type: "text/javascript" });
-	const url = URL.createObjectURL(blob);
-
+	// Inject synchronously at document-start (before CSP applies)
+	// This is exactly how Tampermonkey/Violentmonkey work
 	const script = document.createElement("script");
-	script.src = url;
-	script.onload = function () {
-		URL.revokeObjectURL(url);
-		script.remove();
-		console.log("Google Forms Unlocker - Successfully injected into page");
-	};
-	script.onerror = function () {
-		URL.revokeObjectURL(url);
-		console.error("Google Forms Unlocker - Failed to inject script");
-	};
+	script.textContent = scriptCode;
 
-	// Inject the script into the page
-	(document.head || document.documentElement).appendChild(script);
+	// Try to inject ASAP - before document.head even exists if possible
+	const target = document.head || document.documentElement || document;
+	if (target) {
+		target.appendChild(script);
+		script.remove(); // Clean up immediately
+		console.log("Google Forms Unlocker - Successfully injected at document-start");
+	} else {
+		// Fallback: wait for documentElement to exist
+		const observer = new MutationObserver((mutations, obs) => {
+			if (document.documentElement) {
+				obs.disconnect();
+				document.documentElement.appendChild(script);
+				script.remove();
+				console.log("Google Forms Unlocker - Successfully injected via MutationObserver");
+			}
+		});
+		observer.observe(document, { childList: true, subtree: true });
+	}
 })();
