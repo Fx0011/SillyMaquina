@@ -14,7 +14,8 @@
 	];
 
 	let bypassEnabled = false;
-	let shouldSpoof = false;
+	// Use URL hash to persist shouldSpoof across reloads (like original script)
+	let shouldSpoof = location.hash === "#sillymaquina-bypass";
 	let oldSendMessage = window.chrome?.runtime?.sendMessage;
 	const oldAddEventListener = document.addEventListener;
 
@@ -50,8 +51,9 @@
 	}
 
 	function ButtonAction() {
-		shouldSpoof = true;
-		console.log("[SillyMaquina Forms Bypass] Bypass button clicked, activating bypass");
+		// Set hash and reload (persists shouldSpoof across reload)
+		location.hash = "sillymaquina-bypass";
+		console.log("[SillyMaquina Forms Bypass] Bypass button clicked, reloading with bypass active");
 		location.reload();
 	}
 
@@ -108,12 +110,17 @@
 			return false;
 		}
 
-		// Add the bypass button
-		MakeButton("Desbloquear", ButtonAction, "#667eea");
+		// Only add button if bypass is not yet active (no hash)
+		if (!shouldSpoof) {
+			MakeButton("Desbloquear", ButtonAction, "#667eea");
+		} else {
+			console.log("[SillyMaquina Forms Bypass] Bypass already active via hash, skipping button");
+		}
 
 		return true;
 	}
 
+	// fakeIsLocked starts as shouldSpoof value
 	var fakeIsLocked = shouldSpoof;
 	function InterceptCommand(Payload, Callback) {
 		console.log("[SillyMaquina Forms Bypass] Intercepted:", Payload.command);
@@ -214,11 +221,16 @@
 		}
 
 		console.log("[SillyMaquina Forms Bypass] Enabled in settings");
+		
+		// Log if bypass is active via hash
+		if (shouldSpoof) {
+			console.log("[SillyMaquina Forms Bypass] Bypass active via URL hash");
+		}
 
 		// Wait 1 second for slow Chromebooks
 		await new Promise((resolve) => setTimeout(resolve, 1000));
 
-		// Set up the interception immediately
+		// ALWAYS set up the interception (whether button clicked or not)
 		setupContinuousInterception();
 
 		// Try to add button, retry if form not ready
