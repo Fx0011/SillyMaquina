@@ -1,6 +1,6 @@
 // This script runs in ISOLATED world
-// It reads settings from chrome.storage and injects a script into the page
-// that sets a data attribute the MAIN world can check
+// It reads settings from chrome.storage and writes to localStorage
+// The MAIN world script can read localStorage (same origin)
 
 (async function initializeFormsBypassSettings() {
 	try {
@@ -9,32 +9,11 @@
 		const settings = result.settings || {};
 		const bypassEnabled = settings.formsLockedModeBypass === true;
 
-		console.log("Google Forms Unlocker - Settings check:", bypassEnabled);
-
-		// Inject a script into the page that sets a data attribute
-		// The MAIN world script will be able to check document.documentElement.getAttribute()
-		const script = document.createElement("script");
-		script.textContent = `
-			document.documentElement.setAttribute('data-gfu-enabled', '${bypassEnabled}');
-			console.log('Google Forms Unlocker - Bypass enabled:', document.documentElement.getAttribute('data-gfu-enabled'));
-		`;
-		script.id = "gfu-settings-injector";
-
-		// Inject before document loads
-		if (document.documentElement) {
-			document.documentElement.insertBefore(script, document.documentElement.firstChild);
-		} else {
-			document.addEventListener("DOMContentLoaded", () => {
-				document.documentElement.insertBefore(script, document.documentElement.firstChild);
-			});
-		}
+		// Write to localStorage - MAIN world can read this
+		localStorage.setItem("gfu-bypass-enabled", bypassEnabled ? "true" : "false");
+		console.log("Google Forms Unlocker - Settings saved to localStorage:", bypassEnabled);
 	} catch (error) {
 		console.error("Google Forms Unlocker - Failed to load settings:", error);
-		// Set default to false if something goes wrong
-		const script = document.createElement("script");
-		script.textContent = `document.documentElement.setAttribute('data-gfu-enabled', 'false');`;
-		if (document.documentElement) {
-			document.documentElement.insertBefore(script, document.documentElement.firstChild);
-		}
+		localStorage.setItem("gfu-bypass-enabled", "false");
 	}
 })();

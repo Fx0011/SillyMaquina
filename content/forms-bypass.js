@@ -4,8 +4,8 @@
 
 console.log("Google Forms Unlocker - Running in MAIN world");
 
-// Check if bypass is enabled via data attribute set by forms-bypass-init.js
-const bypassEnabled = document.documentElement.getAttribute("data-gfu-enabled") === "true";
+// Check if bypass is enabled via localStorage (set by forms-bypass-init.js in isolated world)
+const bypassEnabled = localStorage.getItem("gfu-bypass-enabled") === "true";
 console.log("Google Forms Unlocker - Bypass enabled:", bypassEnabled);
 
 if (!bypassEnabled) {
