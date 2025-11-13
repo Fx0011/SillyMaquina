@@ -26,7 +26,7 @@
 		},
 		{
 			"matches": ["*://docs.google.com/forms/*"],
-			"js": ["content/forms-bypass-settings.js"],
+			"js": ["content/forms-bypass-init.js"],
 			"run_at": "document_start",
 			"all_frames": true
 		},
