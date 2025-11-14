@@ -862,6 +862,7 @@ async function loadSettings(container) {
 			  </label>
 			  <small><i class="fas fa-info-circle"></i> Permite acessar Google Forms em modo bloqueado sem restrições. Funciona em Chromebooks gerenciados com extensões habilitadas.</small>
 			  <small class="warning-text"><i class="fas fa-exclamation-triangle"></i> Use apenas para fins educacionais. Requer recarregar a página do formulário após ativar até aparecer o botão de desbloquear.</small>
+			  <small class="warning-text"><i class="fas fa-info-circle"></i> <strong>Dica:</strong> Ative o modo tela cheia (F11) para evitar ser detectado.</small>
 			</div>
 		  </div>
 		  
@@ -1465,10 +1466,9 @@ async function saveSettings(container) {
 			}
 		}
 
-		// Create settings object for API (without legacyCapture and formsLockedModeBypass)
+		// Create settings object for API
 		const apiSettings = { ...newSettings };
-		delete apiSettings.legacyCapture; // Don't send to API
-		delete apiSettings.formsLockedModeBypass; // Don't send to API
+		// All settings are now sent to the API
 
 		const token = await getStorageItem("token");
 		const response = await fetch(`${API_BASE_URL}/users/me/configuration`, {
