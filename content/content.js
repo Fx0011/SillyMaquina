@@ -329,7 +329,7 @@ function mergeWithDefaults(userSettings) {
 async function isAuthenticated() {
 	try {
 		const response = await safeSendMessage({ action: "checkAuth" });
-		return response.isAuthenticated;
+		return response && response.isAuthenticated === true;
 	} catch (error) {
 		console.error("Auth check failed:", error);
 		return false;

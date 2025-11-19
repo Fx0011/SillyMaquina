@@ -159,6 +159,10 @@ async function Initialize() {
 
 var fakeIsLocked = shouldSpoof;
 function InterceptCommand(Payload, Callback) {
+	if (!Callback || typeof Callback !== "function") {
+		return false;
+	}
+	
 	switch (Payload.command) {
 		case "isLocked":
 			Callback({ locked: fakeIsLocked });
@@ -193,7 +197,9 @@ setInterval(() => {
 			if (window.chrome.runtime.lastError) {
 				return;
 			}
-			Callback.apply(this, arguments);
+			if (Callback && typeof Callback === "function") {
+				Callback.apply(this, arguments);
+			}
 		});
 	};
 });
