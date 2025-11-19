@@ -8,10 +8,7 @@ const kAssessmentAssistantExtensionId = "gndmhdcefbhlchkhipcnnbkcmicncehk";
 const ERROR_USER_AGENT = "_useragenterror";
 const ERROR_UNKNOWN = "_unknown";
 
-// Check if we should spoof - updated dynamically
 var shouldSpoof = location.hash === "#gfu";
-
-console.log("Google Forms Bypass - Iniciando com shouldSpoof:", shouldSpoof);
 
 window.chrome = window.chrome || {};
 window.chrome.runtime = window.chrome.runtime || {};
@@ -131,11 +128,8 @@ async function IsOnChromebook() {
 }
 
 async function Initialize() {
-	console.log("Initialize chamado - shouldSpoof:", shouldSpoof);
-
 	const Errored = PageIsErrored();
 	if (Errored !== false) {
-		console.log("Página com erro detectado:", Errored);
 		switch (MatchErrorType(Errored)) {
 			case ERROR_USER_AGENT:
 				// Removed user agent spoofer message - bypass is already active
@@ -147,14 +141,11 @@ async function Initialize() {
 	}
 
 	const Form = GetGoogleForm();
-	console.log("Formulário encontrado:", Form !== undefined);
-
 	if (Form === undefined) {
 		return false;
 	}
 
 	const IsRealManagedChromebook = await IsOnChromebook();
-	console.log("IsOnChromebook:", IsRealManagedChromebook);
 
 	if (IsRealManagedChromebook === false) {
 		const ButtonHolder = Form.childNodes[2];
@@ -167,26 +158,18 @@ async function Initialize() {
 		}
 	}
 
-	console.log("Criando botão Desbloquear");
 	MakeButton("Desbloquear", ButtonAction, "#ff90bf");
 }
 
-var fakeIsLocked = !shouldSpoof; // Quando shouldSpoof=true, formulário está DESBLOQUEADO (locked=false)
+var fakeIsLocked = shouldSpoof;
 
 function InterceptCommand(Payload, Callback) {
-	if (!Callback || typeof Callback !== "function") {
-		return false;
-	}
-
 	switch (Payload.command) {
 		case "isLocked":
-			// Always return unlocked when shouldSpoof is true
-			console.log("Interceptando isLocked, retornando locked:", fakeIsLocked);
 			Callback({ locked: fakeIsLocked });
 			return true;
 		case "lock":
 			if (shouldSpoof) {
-				console.log("Ignorando comando lock (shouldSpoof ativo)");
 				return false;
 			}
 			fakeIsLocked = false;
@@ -194,7 +177,6 @@ function InterceptCommand(Payload, Callback) {
 			return true;
 		case "unlock":
 			fakeIsLocked = false;
-			console.log("Comando unlock executado");
 			Callback({ locked: fakeIsLocked });
 			return true;
 	}
@@ -212,8 +194,11 @@ setInterval(() => {
 				return null;
 			}
 		}
+		console.warn("Not intercepting", ExtensionId, Payload);
+
 		return oldSendMessage(ExtensionId, Payload, function () {
 			if (window.chrome.runtime.lastError) {
+				console.warn("Chrome runtime error:", window.chrome.runtime.lastError);
 				return;
 			}
 			if (Callback && typeof Callback === "function") {
@@ -224,25 +209,9 @@ setInterval(() => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+	console.log("Initialized");
 	Initialize();
 });
-
-// Se já tiver o hash #gfu, inicializa imediatamente quando possível
-if (shouldSpoof) {
-	console.log("Modo bypass ativo - aguardando formulário carregar");
-
-	// Tenta inicializar assim que o documento estiver pronto
-	if (document.readyState === "loading") {
-		document.addEventListener("DOMContentLoaded", () => {
-			console.log("DOMContentLoaded - Inicializando bypass");
-			Initialize();
-		});
-	} else {
-		// Documento já carregado
-		console.log("Documento já carregado - Inicializando bypass");
-		Initialize();
-	}
-}
 
 Object.defineProperty(document, "hidden", { value: false, writable: false, configurable: true });
 Object.defineProperty(document, "visibilityState", { value: "visible", writable: false, configurable: true });
