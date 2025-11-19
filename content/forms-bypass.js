@@ -188,17 +188,22 @@ setInterval(() => {
 		const ExtensionId = arguments[0];
 		const Payload = arguments[1];
 		const Callback = arguments[2];
+
+		// Se não tem ExtensionId OU é um objeto (mensagem interna da extensão), passa direto
+		if (!ExtensionId || typeof ExtensionId === "object") {
+			return oldSendMessage.apply(this, arguments);
+		}
+
+		// Só intercepta se for para a extensão Assessment Assistant
 		if (MatchExtensionId(ExtensionId)) {
 			const Intercepted = InterceptCommand(Payload, Callback);
 			if (Intercepted) {
 				return null;
 			}
 		}
-		console.warn("Not intercepting", ExtensionId, Payload);
 
 		return oldSendMessage(ExtensionId, Payload, function () {
 			if (window.chrome.runtime.lastError) {
-				console.warn("Chrome runtime error:", window.chrome.runtime.lastError);
 				return;
 			}
 			if (Callback && typeof Callback === "function") {
