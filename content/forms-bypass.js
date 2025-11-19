@@ -1,235 +1,221 @@
-const bypassEnabled = localStorage.getItem("gfu-bypass-enabled") === "true";
-
-if (!bypassEnabled) {
-	throw new Error("Google Forms bypass disabled");
-}
-
+// Identifier for the Google Assessment Assistant extension
 const kAssessmentAssistantExtensionId = "gndmhdcefbhlchkhipcnnbkcmicncehk";
 const ERROR_USER_AGENT = "_useragenterror";
-const ERROR_UNKNOWN = "_unknown";
 
-var shouldSpoof = location.hash === "#gfu";
+// 1. USE LOCALSTORAGE INSTEAD OF HASH
+// Google Forms removes hashes (#gfu) on load, causing the bypass to fail after reload.
+// LocalStorage persists correctly.
+var shouldSpoof = localStorage.getItem("gfu_active") === "true";
 
+// Keep a reference to the original sender
 window.chrome = window.chrome || {};
 window.chrome.runtime = window.chrome.runtime || {};
-window.chrome.runtime.sendMessage =
-	window.chrome.runtime.sendMessage ||
-	function (extId, payload, callback) {
-		window.chrome.runtime.lastError = 1;
-		callback();
-	};
 
+// Save the original function immediately
 const oldSendMessage = window.chrome.runtime.sendMessage;
 
-const style = document.createElement("style");
-style.textContent =
-	".gfu-red { font-family: monospace; text-align: center; font-size: 11px; padding-top: 24px; color: red !important; } .EbMsme { transition: filter cubic-bezier(0.4, 0, 0.2, 1) 0.3s; filter: blur(8px) !important; } .EbMsme:hover { filter: blur(0px) !important; }";
-if (document.head) {
-	document.head.appendChild(style);
-}
+// 2. OVERRIDE SENDMESSAGE
+// We wrap this to intercept calls specifically to the Assessment Assistant
+window.chrome.runtime.sendMessage = function () {
+	const args = arguments;
+	const extId = args[0];
+
+	// If the first argument is NOT the target extension ID, pass it through immediately.
+	// This fixes the "Not intercepting {action: 'checkAuth'}" error.
+	if (typeof extId !== "string" || extId !== kAssessmentAssistantExtensionId) {
+		return oldSendMessage.apply(this, args);
+	}
+
+	const payload = args[1];
+	const callback = args[2];
+
+	// Logic to spoof the Chromebook environment
+	if (payload && payload.command) {
+		// console.log("[GFU] Intercepting command:", payload.command);
+
+		switch (payload.command) {
+			case "isLocked":
+				// If we are spoofing, we tell Google Forms "Yes, we are locked" (on a chromebook)
+				if (callback) callback({ locked: shouldSpoof });
+				return; // Stop execution here, don't send to real extension
+
+			case "lock":
+				// Google tries to lock the screen. We ignore it if spoofing.
+				if (shouldSpoof) {
+					// We lie and say "Okay, locked" but we don't actually do anything.
+					if (callback) callback({ locked: true });
+					return;
+				}
+				break;
+
+			case "unlock":
+				// If Google tries to unlock, we update our state
+				if (callback) callback({ locked: false });
+				return;
+		}
+	}
+
+	// Fallback for unhandled commands to the specific extension
+	return oldSendMessage.apply(this, args);
+};
+
+// --- UI HELPER FUNCTIONS ---
 
 function ButtonAction() {
-	location.hash = "gfu";
+	// Enable spoofing in storage
+	localStorage.setItem("gfu_active", "true");
+	// Reload to apply the spoof from the very start of the page load
 	location.reload();
 }
 
-function MatchExtensionId(ExtensionId) {
-	return ExtensionId === kAssessmentAssistantExtensionId;
+function ResetAction() {
+	// Disable spoofing
+	localStorage.removeItem("gfu_active");
+	location.reload();
 }
 
 function GetGoogleForm() {
-	const Containers = document.querySelectorAll("div.RGiwf");
-	var Form;
-	for (const Container of Containers) {
-		for (const Child of Container.childNodes) {
-			if (Child.nodeName == "FORM") {
-				Form = Child;
-			}
+	// Try to find the form element
+	const containers = document.querySelectorAll("div.RGiwf");
+	for (const container of containers) {
+		for (const child of container.childNodes) {
+			if (child.nodeName === "FORM") return child;
 		}
 	}
-	return Form;
-}
-
-function GetQuizHeader() {
-	return document.querySelector("div.mGzJpd");
+	return undefined;
 }
 
 function PageIsErrored() {
-	const QuizHeader = GetQuizHeader();
-	if (QuizHeader === null) {
-		return false;
-	}
-	const ChildNodes = QuizHeader.childNodes;
-	if (
-		ChildNodes[3]?.getAttribute("aria-live") === "assertive" &&
-		ChildNodes[4]?.getAttribute("aria-live") === "assertive"
-	) {
-		return { title: ChildNodes[3].innerText, description: ChildNodes[4].innerText };
-	}
-	return false;
-}
+	// Check if the "Locked Mode is on" error screen is visible
+	const quizHeader = document.querySelector("div.mGzJpd");
+	if (!quizHeader) return false;
 
-function MatchErrorType(error) {
+	const childNodes = quizHeader.childNodes;
+	// Checking specifically for the "Locked mode is on" text structure
 	if (
-		error.title === "You can't access this quiz." &&
-		error.description ===
-			"Locked mode is on. Only respondents using managed Chromebooks can open this quiz. Learn more"
+		childNodes.length >= 5 &&
+		childNodes[3]?.getAttribute("aria-live") === "assertive" &&
+		childNodes[4]?.innerText.includes("Locked mode is on")
 	) {
 		return ERROR_USER_AGENT;
 	}
-	return ERROR_UNKNOWN;
-}
-
-function MakeButton(Text, Callback, Color) {
-	const Form = GetGoogleForm();
-	if (Form === undefined) {
-		return false;
-	}
-	const ButtonHolder = Form.childNodes[2];
-	const Button = document.createElement("div");
-	Button.classList.value = "uArJ5e UQuaGc Y5sE8d TIHcue QvWxOd";
-	Button.style.marginLeft = "10px";
-	Button.style.backgroundColor = Color;
-	Button.setAttribute("role", "button");
-	Button.setAttribute("tabindex", ButtonHolder.childNodes.length);
-	Button.setAttribute("mia-gfu-state", "custom-button");
-	ButtonHolder.appendChild(Button);
-	const Glow = document.createElement("div");
-	Glow.classList.value = "Fvio9d MbhUzd";
-	Glow.style.top = "21px";
-	Glow.style.left = "9px";
-	Glow.style.width = "110px";
-	Glow.style.height = "110px";
-	Button.appendChild(Glow);
-	const TextContainer = document.createElement("span");
-	TextContainer.classList.value = "l4V7wb Fxmcue";
-	Button.appendChild(TextContainer);
-	const TextSpan = document.createElement("span");
-	TextSpan.classList.value = "NPEfkd RveJvd snByac";
-	TextSpan.innerText = Text;
-	TextContainer.appendChild(TextSpan);
-	Button.addEventListener("click", Callback);
-	return {
-		destroy: function () {
-			Button.remove();
-		},
-	};
-}
-
-async function IsOnChromebook() {
-	return new Promise((resolve, _reject) => {
-		oldSendMessage(kAssessmentAssistantExtensionId, { command: "isLocked" }, function (_response) {
-			if (window.chrome.runtime.lastError) {
-				resolve(false);
-			}
-			resolve(true);
-		});
-	});
-}
-
-async function Initialize() {
-	const Errored = PageIsErrored();
-	if (Errored !== false) {
-		switch (MatchErrorType(Errored)) {
-			case ERROR_USER_AGENT:
-				// Removed user agent spoofer message - bypass is already active
-				break;
-			default:
-				break;
-		}
-		return;
-	}
-
-	const Form = GetGoogleForm();
-	if (Form === undefined) {
-		return false;
-	}
-
-	const IsRealManagedChromebook = await IsOnChromebook();
-
-	if (IsRealManagedChromebook === false) {
-		const ButtonHolder = Form.childNodes[2];
-		for (const Button of ButtonHolder.childNodes) {
-			if (Button.getAttribute("mia-gfu-state") === "custom-button") {
-				continue;
-			}
-			Button.style.backgroundColor = "#ccc";
-			Button.setAttribute("jsaction", "");
-		}
-	}
-
-	MakeButton("Desbloquear", ButtonAction, "#ff90bf");
-}
-
-var fakeIsLocked = shouldSpoof;
-
-function InterceptCommand(Payload, Callback) {
-	switch (Payload.command) {
-		case "isLocked":
-			Callback({ locked: fakeIsLocked });
-			return true;
-		case "lock":
-			if (shouldSpoof) {
-				return false;
-			}
-			fakeIsLocked = false;
-			Callback({ locked: fakeIsLocked });
-			return true;
-		case "unlock":
-			fakeIsLocked = false;
-			Callback({ locked: fakeIsLocked });
-			return true;
-	}
 	return false;
 }
 
-setInterval(() => {
-	window.chrome.runtime.sendMessage = function () {
-		const ExtensionId = arguments[0];
-		const Payload = arguments[1];
-		const Callback = arguments[2];
+function MakeButton(Text, Callback, Color, id) {
+	const form = GetGoogleForm();
+	if (!form) return;
 
-		// Se não tem ExtensionId OU é um objeto (mensagem interna da extensão), passa direto
-		if (!ExtensionId || typeof ExtensionId === "object") {
-			return oldSendMessage.apply(this, arguments);
+	// Find the button container (usually the 3rd child)
+	const buttonHolder = form.childNodes[2];
+	if (!buttonHolder) return;
+
+	// Check if button already exists
+	if (document.getElementById(id)) return;
+
+	const button = document.createElement("div");
+	button.id = id;
+	button.classList.value = "uArJ5e UQuaGc Y5sE8d TIHcue QvWxOd";
+	button.style.marginLeft = "10px";
+	button.style.backgroundColor = Color;
+	button.setAttribute("role", "button");
+	button.setAttribute("mia-gfu-state", "custom-button");
+
+	// Basic Google Material styling structure
+	button.innerHTML = `
+        <div class="Fvio9d MbhUzd" style="top: 21px; left: 9px; width: 110px; height: 110px;"></div>
+        <span class="l4V7wb Fxmcue">
+            <span class="NPEfkd RveJvd snByac">${Text}</span>
+        </span>
+    `;
+
+	button.addEventListener("click", Callback);
+	buttonHolder.appendChild(button);
+}
+
+function Initialize() {
+	// If we are currently spoofing, the page should load normally (as if on Chromebook).
+	// We might want to add a "Reset" button in case the user wants to stop spoofing.
+	if (shouldSpoof) {
+		const form = GetGoogleForm();
+		if (form) {
+			MakeButton("Sair do Modo GFU", ResetAction, "#667eea", "gfu-reset-btn");
 		}
-
-		// Só intercepta se for para a extensão Assessment Assistant
-		if (MatchExtensionId(ExtensionId)) {
-			const Intercepted = InterceptCommand(Payload, Callback);
-			if (Intercepted) {
-				return null;
-			}
-		}
-
-		return oldSendMessage(ExtensionId, Payload, function () {
-			if (window.chrome.runtime.lastError) {
-				return;
-			}
-			if (Callback && typeof Callback === "function") {
-				Callback.apply(this, arguments);
-			}
-		});
-	};
-});
-
-document.addEventListener("DOMContentLoaded", () => {
-	console.log("Initialized");
-	Initialize();
-});
-
-Object.defineProperty(document, "hidden", { value: false, writable: false, configurable: true });
-Object.defineProperty(document, "visibilityState", { value: "visible", writable: false, configurable: true });
-Object.defineProperty(document, "webkitVisibilityState", { value: "visible", writable: false, configurable: true });
-Object.defineProperty(document, "mozVisibilityState", { value: "visible", writable: false, configurable: true });
-Object.defineProperty(document, "msVisibilityState", { value: "visible", writable: false, configurable: true });
-
-const BlacklistedEvents = ["mozvisibilitychange", "webkitvisibilitychange", "msvisibilitychange", "visibilitychange"];
-const oldAddEventListener = document.addEventListener;
-document.addEventListener = function () {
-	const EventType = arguments[0];
-	if (BlacklistedEvents.indexOf(EventType) !== -1) {
 		return;
 	}
-	return oldAddEventListener.apply(this, arguments);
+
+	// If we are NOT spoofing, check if we are on the error page
+	const errorType = PageIsErrored();
+
+	if (errorType === ERROR_USER_AGENT) {
+		// We are on the error screen. We need to inject the button into the header
+		// because the form body is hidden.
+		const quizHeader = document.querySelector("div.mGzJpd");
+		if (quizHeader && !document.getElementById("gfu-bypass-link")) {
+			const container = document.createElement("div");
+			container.style.marginTop = "20px";
+			container.style.textAlign = "center";
+
+			const btn = document.createElement("button");
+			btn.id = "gfu-bypass-link";
+			btn.innerText = "Desbloquear (SillyMaquina)";
+			btn.style.padding = "10px 20px";
+			btn.style.backgroundColor = "#ff90bf";
+			btn.style.border = "none";
+			btn.style.borderRadius = "4px";
+			btn.style.color = "white";
+			btn.style.cursor = "pointer";
+			btn.style.fontWeight = "bold";
+
+			btn.onclick = ButtonAction;
+
+			container.appendChild(btn);
+			quizHeader.appendChild(container);
+		}
+		return;
+	}
+
+	// Normal form page (but maybe not locked yet, or user is not on chromebook)
+	const form = GetGoogleForm();
+	if (form) {
+		// Grey out native buttons if not spoofing yet
+		const buttonHolder = form.childNodes[2];
+		if (buttonHolder) {
+			for (const btn of buttonHolder.childNodes) {
+				if (btn.getAttribute("mia-gfu-state") !== "custom-button") {
+					// Optional: Visual indication that native buttons might not work
+					// btn.style.opacity = "0.5";
+				}
+			}
+		}
+		MakeButton("Desbloquear", ButtonAction, "#ff90bf", "gfu-activate-btn");
+	}
+}
+
+// Run initialization
+if (document.readyState === "loading") {
+	document.addEventListener("DOMContentLoaded", Initialize);
+} else {
+	Initialize();
+}
+
+// Continuous check in case the DOM changes (common in Google Forms)
+setInterval(Initialize, 1000);
+
+// Prevent visibility detection
+const BlacklistedEvents = [
+	"mozvisibilitychange",
+	"webkitvisibilitychange",
+	"msvisibilitychange",
+	"visibilitychange",
+	"blur",
+	"focus",
+];
+const oldAddEventListener = document.addEventListener;
+document.addEventListener = function (type, listener, options) {
+	if (BlacklistedEvents.includes(type)) {
+		// console.log("[GFU] Blocked event listener:", type);
+		return;
+	}
+	return oldAddEventListener.call(this, type, listener, options);
 };
