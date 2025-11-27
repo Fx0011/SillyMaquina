@@ -122,12 +122,23 @@ function MakeButton(Text, Callback, Color, id) {
 	button.setAttribute("mia-gfu-state", "custom-button");
 
 	// Basic Google Material styling structure
-	button.innerHTML = `
-        <div class="Fvio9d MbhUzd" style="top: 21px; left: 9px; width: 110px; height: 110px;"></div>
-        <span class="l4V7wb Fxmcue">
-            <span class="NPEfkd RveJvd snByac">${Text}</span>
-        </span>
-    `;
+	// Replaced innerHTML with DOM creation to satisfy TrustedHTML policy
+	const glowDiv = document.createElement("div");
+	glowDiv.className = "Fvio9d MbhUzd";
+	glowDiv.style.top = "21px";
+	glowDiv.style.left = "9px";
+	glowDiv.style.width = "110px";
+	glowDiv.style.height = "110px";
+	button.appendChild(glowDiv);
+
+	const spanOuter = document.createElement("span");
+	spanOuter.className = "l4V7wb Fxmcue";
+	button.appendChild(spanOuter);
+
+	const spanInner = document.createElement("span");
+	spanInner.className = "NPEfkd RveJvd snByac";
+	spanInner.textContent = Text;
+	spanOuter.appendChild(spanInner);
 
 	button.addEventListener("click", Callback);
 	buttonHolder.appendChild(button);
