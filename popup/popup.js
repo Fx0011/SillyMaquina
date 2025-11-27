@@ -9,6 +9,7 @@ let metricsLastFetched = null;
 const METRICS_CACHE_TTL = 5 * 60 * 1000;
 let maintenanceStatus = null;
 
+//
 document.addEventListener("DOMContentLoaded", async () => {
 	showLoadingScreen();
 	await checkMaintenanceAndAuth();
